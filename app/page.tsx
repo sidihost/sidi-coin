@@ -112,18 +112,34 @@ export default function BrandAssetsPage() {
 
         <div className="flex flex-col gap-10">
           <AssetCard
-            title="Sidicoin Logo"
-            description="The official Sidicoin logo featuring the golden S coin emblem on a deep navy background. Use for profile images, app icons, and branding."
-            src="/images/sidicoin-logo.jpg"
-            filename="sidicoin-logo.jpg"
+            title="Main Coin Logo (White Background)"
+            description="The iconic 3D golden SIDI coin on a clean white background. Perfect for websites, documents, presentations, and any light-background usage. Features African kente-inspired rim details."
+            src="/images/sidicoin-logo-main.jpg"
+            filename="sidicoin-logo-main.jpg"
             dimensions="High Resolution"
           />
 
           <AssetCard
+            title="Full Logo (Dark Background)"
+            description="The golden SIDI coin with SIDICOIN typography on premium dark navy. Ideal for social media headers, promotional material, and dark-themed platforms."
+            src="/images/sidicoin-logo-dark.jpg"
+            filename="sidicoin-logo-dark.jpg"
+            dimensions="High Resolution"
+          />
+
+          <AssetCard
+            title="Telegram Profile Logo"
+            description="Bold, minimal golden S coin on navy blue optimized for small profile sizes. Use this as your Telegram bot profile picture, social media avatar, and app icon. Stays crisp even at 64x64."
+            src="/images/sidicoin-logo-telegram.jpg"
+            filename="sidicoin-logo-telegram.jpg"
+            dimensions="Square"
+          />
+
+          <AssetCard
             title="Welcome Banner"
-            description="Premium wide-format welcome banner with the Sidicoin branding, African continent motif, and blockchain network visualization. Ideal for Telegram, social media, and headers."
-            src="/images/sidicoin-welcome-banner.jpg"
-            filename="sidicoin-welcome-banner.jpg"
+            description="Cinematic wide-format banner with the 3D golden coin, SIDICOIN branding, and 'Africa's Digital Currency' tagline. Use for Telegram channel headers, Twitter/X banners, and website heroes."
+            src="/images/sidicoin-banner-v2.jpg"
+            filename="sidicoin-banner-v2.jpg"
             dimensions="Wide Format"
           />
         </div>
