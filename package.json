@@ -4,8 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node index.js",
-    "start": "node index.js"
+    "dev": "next dev --turbopack",
+    "start": "next start",
+    "bot": "node server.js",
+    "bot:dev": "node --watch server.js"
   },
   "dependencies": {
     "@upstash/redis": "^1.34.0",
