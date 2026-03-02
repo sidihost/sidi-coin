@@ -1,7 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { Download, Check, ExternalLink } from "lucide-react";
+
+const gold = "#C8942A";
+const navy = "#1B2A4A";
+const cream = "#F7F5F0";
+const cardBg = "#FFFFFF";
+const mutedText = "#7A7668";
+const borderColor = "#E8E4DC";
 
 function DownloadButton({ href, filename }: { href: string; filename: string }) {
   const [downloaded, setDownloaded] = useState(false);
@@ -20,20 +26,56 @@ function DownloadButton({ href, filename }: { href: string; filename: string }) 
   return (
     <button
       onClick={handleDownload}
-      className="flex items-center gap-2 px-6 py-3 rounded-lg font-sans font-semibold text-sm tracking-wide transition-all duration-200 cursor-pointer bg-primary text-primary-foreground hover:opacity-90 active:scale-[0.97]"
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "8px",
+        padding: "12px 24px",
+        borderRadius: "10px",
+        border: "none",
+        background: gold,
+        color: "#FFFFFF",
+        fontSize: "14px",
+        fontWeight: 600,
+        cursor: "pointer",
+        transition: "opacity 0.2s",
+        fontFamily: "inherit",
+      }}
+      onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.85")}
+      onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
     >
-      {downloaded ? (
-        <>
-          <Check className="w-4 h-4" />
-          Downloaded
-        </>
-      ) : (
-        <>
-          <Download className="w-4 h-4" />
-          Download {filename.includes("logo") ? "Logo" : "Banner"}
-        </>
-      )}
+      {downloaded ? "Downloaded" : "Download"}
     </button>
+  );
+}
+
+function ViewButton({ href }: { href: string }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "8px",
+        padding: "12px 24px",
+        borderRadius: "10px",
+        border: `1.5px solid ${borderColor}`,
+        background: "transparent",
+        color: navy,
+        fontSize: "14px",
+        fontWeight: 600,
+        cursor: "pointer",
+        textDecoration: "none",
+        transition: "background 0.2s",
+        fontFamily: "inherit",
+      }}
+      onMouseEnter={(e) => (e.currentTarget.style.background = "#F0ECE4")}
+      onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+    >
+      Full Size
+    </a>
   );
 }
 
@@ -42,51 +84,69 @@ function AssetCard({
   description,
   src,
   filename,
-  dimensions,
+  tag,
 }: {
   title: string;
   description: string;
   src: string;
   filename: string;
-  dimensions: string;
+  tag: string;
 }) {
   return (
-    <div className="rounded-xl border border-border bg-card overflow-hidden">
-      <div className="relative w-full bg-muted flex items-center justify-center p-6">
+    <div
+      style={{
+        borderRadius: "16px",
+        border: `1px solid ${borderColor}`,
+        background: cardBg,
+        overflow: "hidden",
+      }}
+    >
+      <div
+        style={{
+          background: "#EFEBE3",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "32px",
+        }}
+      >
         <img
           src={src}
           alt={title}
-          className="w-full h-auto rounded-lg object-contain max-h-[400px]"
+          style={{
+            width: "100%",
+            height: "auto",
+            maxHeight: "400px",
+            objectFit: "contain",
+            borderRadius: "10px",
+          }}
         />
       </div>
-      <div className="p-6 flex flex-col gap-4">
+      <div style={{ padding: "24px", display: "flex", flexDirection: "column", gap: "16px" }}>
         <div>
-          <h2 className="text-xl font-sans font-bold text-card-foreground">
-            {title}
-          </h2>
-          <p className="text-sm text-muted-foreground mt-1 font-sans">
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
+            <h2 style={{ fontSize: "20px", fontWeight: 700, color: navy, margin: 0 }}>{title}</h2>
+            <span
+              style={{
+                fontSize: "11px",
+                fontWeight: 600,
+                padding: "3px 10px",
+                borderRadius: "6px",
+                background: `${gold}18`,
+                color: gold,
+                letterSpacing: "0.5px",
+              }}
+            >
+              {tag}
+            </span>
+          </div>
+          <p style={{ fontSize: "14px", color: mutedText, lineHeight: 1.6, margin: 0 }}>
             {description}
           </p>
         </div>
-        <div className="flex items-center gap-3 text-xs text-muted-foreground font-mono">
-          <span className="px-2 py-1 rounded bg-primary/10 text-primary">
-            JPG
-          </span>
-          <span className="px-2 py-1 rounded bg-primary/10 text-primary">
-            {dimensions}
-          </span>
-        </div>
-        <div className="flex items-center gap-3">
+        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
           <DownloadButton href={src} filename={filename} />
-          <a
-            href={src}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 px-6 py-3 rounded-lg font-sans font-semibold text-sm tracking-wide transition-all duration-200 border border-border text-foreground hover:bg-muted"
-          >
-            <ExternalLink className="w-4 h-4" />
-            Full Size
-          </a>
+          <ViewButton href={src} />
         </div>
       </div>
     </div>
@@ -95,61 +155,93 @@ function AssetCard({
 
 export default function BrandAssetsPage() {
   return (
-    <main className="min-h-screen bg-background">
-      <div className="max-w-4xl mx-auto px-6 py-16">
-        <header className="text-center mb-16">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-mono tracking-wider mb-6 border border-primary/20">
+    <main style={{ minHeight: "100vh", background: cream }}>
+      <div style={{ maxWidth: "800px", margin: "0 auto", padding: "64px 24px" }}>
+        <header style={{ textAlign: "center", marginBottom: "64px" }}>
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "8px",
+              padding: "6px 16px",
+              borderRadius: "999px",
+              background: `${gold}15`,
+              color: gold,
+              fontSize: "12px",
+              fontWeight: 600,
+              letterSpacing: "1.5px",
+              border: `1px solid ${gold}30`,
+              marginBottom: "24px",
+            }}
+          >
             BRAND ASSETS
           </div>
-          <h1 className="text-4xl md:text-5xl font-sans font-bold text-foreground tracking-tight text-balance">
+          <h1
+            style={{
+              fontSize: "clamp(32px, 5vw, 48px)",
+              fontWeight: 800,
+              color: navy,
+              letterSpacing: "-0.5px",
+              lineHeight: 1.1,
+              margin: "0 0 16px 0",
+            }}
+          >
             Sidicoin Brand Kit
           </h1>
-          <p className="text-muted-foreground mt-4 text-lg font-sans max-w-xl mx-auto text-pretty leading-relaxed">
-            Download the official Sidicoin logo and welcome banner.
-            High-resolution assets ready for production use.
+          <p
+            style={{
+              color: mutedText,
+              fontSize: "18px",
+              lineHeight: 1.6,
+              maxWidth: "520px",
+              margin: "0 auto",
+            }}
+          >
+            Download the official Sidicoin logo and welcome banner. High-resolution assets ready for
+            Telegram, social media and your website.
           </p>
         </header>
 
-        <div className="flex flex-col gap-10">
+        <div style={{ display: "flex", flexDirection: "column", gap: "40px" }}>
           <AssetCard
-            title="Main Coin Logo (White Background)"
-            description="The iconic 3D golden SIDI coin on a clean white background. Perfect for websites, documents, presentations, and any light-background usage. Features African kente-inspired rim details."
+            title="Main Coin Logo"
+            description="The iconic 3D golden SIDI coin on a clean white background. Perfect for websites, documents, presentations, and any light-background usage."
             src="/images/sidicoin-logo-main.jpg"
             filename="sidicoin-logo-main.jpg"
-            dimensions="High Resolution"
+            tag="WHITE BG"
           />
 
           <AssetCard
-            title="Full Logo (Dark Background)"
+            title="Full Logo"
             description="The golden SIDI coin with SIDICOIN typography on premium dark navy. Ideal for social media headers, promotional material, and dark-themed platforms."
             src="/images/sidicoin-logo-dark.jpg"
             filename="sidicoin-logo-dark.jpg"
-            dimensions="High Resolution"
+            tag="NAVY BG"
           />
 
           <AssetCard
             title="Telegram Profile Logo"
-            description="Bold, minimal golden S coin on navy blue optimized for small profile sizes. Use this as your Telegram bot profile picture, social media avatar, and app icon. Stays crisp even at 64x64."
+            description="Bold, minimal golden S coin optimized for small profile sizes. Use this as your Telegram bot profile picture, social media avatar, and app icon."
             src="/images/sidicoin-logo-telegram.jpg"
             filename="sidicoin-logo-telegram.jpg"
-            dimensions="Square"
+            tag="SQUARE"
           />
 
           <AssetCard
             title="Welcome Banner"
-            description="Cinematic wide-format banner with the 3D golden coin, SIDICOIN branding, and 'Africa's Digital Currency' tagline. Use for Telegram channel headers, Twitter/X banners, and website heroes."
+            description="Cinematic wide-format banner with the 3D golden coin, SIDICOIN branding, and Africa's Digital Currency tagline. Use for Telegram channel headers and Twitter/X banners."
             src="/images/sidicoin-banner-v2.jpg"
             filename="sidicoin-banner-v2.jpg"
-            dimensions="Wide Format"
+            tag="WIDE"
           />
         </div>
 
-        <footer className="mt-20 text-center">
-          <div className="h-px bg-border mb-8" />
-          <p className="text-sm text-muted-foreground font-sans">
-            Sidicoin — Instant Money Transfers Across Africa
+        <footer style={{ marginTop: "80px", textAlign: "center" }}>
+          <div style={{ height: "1px", background: borderColor, marginBottom: "32px" }} />
+          <p style={{ fontSize: "14px", color: mutedText }}>
+            Sidicoin -- Instant Money Transfers Across Africa
           </p>
-          <p className="text-xs text-muted-foreground font-mono mt-2">
+          <p style={{ fontSize: "12px", color: mutedText, marginTop: "8px", opacity: 0.7 }}>
             Built on TON Blockchain
           </p>
         </footer>
