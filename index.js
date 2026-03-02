@@ -4,7 +4,7 @@ import korapayRouter from './src/routes/korapay.js';
 import adminRouter from './src/routes/admin.js';
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 
 // ── Middleware ──
 app.use(express.json());
