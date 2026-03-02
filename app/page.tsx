@@ -52,7 +52,7 @@ function AssetCard({
 }) {
   return (
     <div className="rounded-xl border border-border bg-card overflow-hidden">
-      <div className="relative w-full bg-secondary flex items-center justify-center p-6">
+      <div className="relative w-full bg-muted flex items-center justify-center p-6">
         <img
           src={src}
           alt={title}
@@ -69,10 +69,10 @@ function AssetCard({
           </p>
         </div>
         <div className="flex items-center gap-3 text-xs text-muted-foreground font-mono">
-          <span className="px-2 py-1 rounded bg-secondary text-secondary-foreground">
+          <span className="px-2 py-1 rounded bg-primary/10 text-primary">
             JPG
           </span>
-          <span className="px-2 py-1 rounded bg-secondary text-secondary-foreground">
+          <span className="px-2 py-1 rounded bg-primary/10 text-primary">
             {dimensions}
           </span>
         </div>
@@ -82,7 +82,7 @@ function AssetCard({
             href={src}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-2 px-6 py-3 rounded-lg font-sans font-semibold text-sm tracking-wide transition-all duration-200 border border-border text-card-foreground hover:bg-secondary"
+            className="flex items-center gap-2 px-6 py-3 rounded-lg font-sans font-semibold text-sm tracking-wide transition-all duration-200 border border-border text-foreground hover:bg-muted"
           >
             <ExternalLink className="w-4 h-4" />
             Full Size
@@ -98,7 +98,7 @@ export default function BrandAssetsPage() {
     <main className="min-h-screen bg-background">
       <div className="max-w-4xl mx-auto px-6 py-16">
         <header className="text-center mb-16">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-secondary text-secondary-foreground text-xs font-mono tracking-wider mb-6">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-mono tracking-wider mb-6 border border-primary/20">
             BRAND ASSETS
           </div>
           <h1 className="text-4xl md:text-5xl font-sans font-bold text-foreground tracking-tight text-balance">
