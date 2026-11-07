@@ -6,11 +6,13 @@ export function formatNumber(num) {
 }
 
 export function sidiToNaira(sidi) {
-  return Number(sidi) * getSidiPriceNgn();
+  const price = getSidiPriceNgn();
+  return Math.round(Number(sidi) * price * 100) / 100;
 }
 
 export function nairaToSidi(naira) {
-  return Number(naira) / getSidiPriceNgn();
+  const price = getSidiPriceNgn();
+  return Math.round((Number(naira) / price) * 100) / 100;
 }
 
 export function formatSidi(amount) {

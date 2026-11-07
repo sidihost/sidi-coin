@@ -21,12 +21,29 @@ async function korapayRequest(endpoint, method, body) {
         headers,
         body: body ? JSON.stringify(body) : undefined,
       });
+
       const data = await response.json();
+
+      // Korapay returns status: false on validation and business-logic failures
+      if (!response.ok || data?.status === false) {
+        const errorMsg = data?.message || `Korapay request failed with status ${response.status}`;
+        const err = new Error(errorMsg);
+        err.data = data;
+        err.statusCode = response.status;
+        throw err;
+      }
+
       return data;
     } catch (error) {
       console.error(`Korapay request attempt ${attempt + 1} failed:`, error.message);
+      // Client errors (4xx) like invalid account numbers or insufficient merchant balance should not be retried blindly
+      if (error.statusCode && error.statusCode >= 400 && error.statusCode < 500) {
+        throw error;
+      }
       if (attempt < 2) {
         await new Promise((r) => setTimeout(r, 1000 * Math.pow(2, attempt)));
+      } else {
+        throw error;
       }
     }
   }

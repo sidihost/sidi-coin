@@ -46,8 +46,7 @@ export const TOTAL_SUPPLY = 10_000_000_000;
 export const FREE_DAILY_LIMIT = 50_000;
 export const PREMIUM_DAILY_LIMIT = 500_000;
 
-/** Fee rates applied to buy/sell. Transfers between users are free. */
+/** Fee rates: Sidicoin charges 0% fees — all transfers, buys, and cashouts are 100% free! */
 export function getFeeRate(isPremium, type) {
-  if (type === 'send') return 0;
-  return isPremium ? 0.008 : 0.015;
+  return 0;
 }

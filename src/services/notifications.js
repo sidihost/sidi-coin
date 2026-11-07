@@ -50,6 +50,56 @@ export async function editMessage(chatId, messageId, text, options = {}) {
   }
 }
 
+export async function deleteMessage(chatId, messageId) {
+  try {
+    const response = await fetch(apiUrl("deleteMessage"), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        message_id: messageId,
+      }),
+    });
+    return await response.json();
+  } catch (error) {
+    console.error('Delete message error:', error.message);
+    return null;
+  }
+}
+
+/**
+ * Sends a message that automatically deletes itself after a specified number of seconds.
+ * Useful for security-sensitive notifications, temporary warnings, and ephemeral receipts.
+ */
+export async function sendSelfDestructingMessage(chatId, text, options = {}, deleteAfterSeconds = 15) {
+  const sent = await sendMessage(chatId, text, options);
+  if (sent?.ok && sent?.result?.message_id) {
+    const messageId = sent.result.message_id;
+    setTimeout(async () => {
+      try {
+        await deleteMessage(chatId, messageId);
+      } catch (err) {
+        console.error('Auto-destruct message error:', err.message);
+      }
+    }, deleteAfterSeconds * 1000);
+  }
+  return sent;
+}
+
+export async function setMyCommands(commands) {
+  try {
+    const response = await fetch(apiUrl("setMyCommands"), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ commands }),
+    });
+    return await response.json();
+  } catch (error) {
+    console.error('Set commands error:', error.message);
+    return null;
+  }
+}
+
 export async function answerCallbackQuery(callbackQueryId, text = '') {
   try {
     await fetch(apiUrl("answerCallbackQuery"), {

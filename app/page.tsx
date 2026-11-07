@@ -13,9 +13,13 @@ const mutedText = "#7A7668";
 const borderColor = "#E8E4DC";
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-   SVG LOGO COMPONENT — The Sidicoin "S" Coin
+   SVG LOGO COMPONENT — Dogecoin-Style Sidicoin "S" Coin
    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
-function SidicoinLogo({ size = 300 }: { size?: number }) {
+function SidicoinLogo({ size = 300, glyphColor = "white" }: { size?: number; glyphColor?: "white" | "navy" }) {
+  const isWhite = glyphColor === "white";
+  const charFill = isWhite ? white : navy;
+  const strokeColor = isWhite ? navy : goldDark;
+
   return (
     <svg
       width={size}
@@ -24,98 +28,96 @@ function SidicoinLogo({ size = 300 }: { size?: number }) {
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
     >
-      <defs>
-        <linearGradient id="coinGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor={goldLight} />
-          <stop offset="50%" stopColor={gold} />
-          <stop offset="100%" stopColor={goldDark} />
-        </linearGradient>
-        <linearGradient id="coinShine" x1="0%" y1="0%" x2="50%" y2="50%">
-          <stop offset="0%" stopColor="#FFF5D4" stopOpacity="0.6" />
-          <stop offset="100%" stopColor="#FFF5D4" stopOpacity="0" />
-        </linearGradient>
-        <linearGradient id="rimGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor={goldLight} />
-          <stop offset="100%" stopColor={goldDark} />
-        </linearGradient>
-        <filter id="coinShadow" x="-20%" y="-20%" width="140%" height="140%">
-          <feDropShadow dx="0" dy="8" stdDeviation="20" floodColor={goldDark} floodOpacity="0.35" />
-        </filter>
-        <filter id="innerGlow">
-          <feGaussianBlur stdDeviation="4" result="blur" />
-          <feComposite in="SourceGraphic" in2="blur" operator="over" />
-        </filter>
-      </defs>
+      {/* Outer coin border - solid dark gold rim */}
+      <circle cx="200" cy="200" r="190" fill={goldDark} />
 
-      {/* Outer rim */}
-      <circle cx="200" cy="200" r="185" fill="url(#rimGrad)" filter="url(#coinShadow)" />
+      {/* Main coin face - vibrant solid coin gold */}
+      <circle cx="200" cy="200" r="176" fill={gold} />
 
-      {/* Inner coin face */}
-      <circle cx="200" cy="200" r="168" fill="url(#coinGrad)" />
-
-      {/* Shine overlay */}
-      <circle cx="200" cy="200" r="168" fill="url(#coinShine)" />
-
-      {/* Decorative ring */}
-      <circle cx="200" cy="200" r="155" fill="none" stroke={goldLight} strokeWidth="1.5" strokeOpacity="0.5" />
-      <circle cx="200" cy="200" r="148" fill="none" stroke={goldDark} strokeWidth="0.8" strokeOpacity="0.3" />
-
-      {/* Kente pattern dots around rim */}
+      {/* Milled coin edge notches - 36 precision minted markers */}
       {Array.from({ length: 36 }).map((_, i) => {
         const angle = (i * 10 * Math.PI) / 180;
-        const cx = 200 + 161 * Math.cos(angle);
-        const cy = 200 + 161 * Math.sin(angle);
+        const x1 = 200 + 175 * Math.cos(angle);
+        const y1 = 200 + 175 * Math.sin(angle);
+        const x2 = 200 + 165 * Math.cos(angle);
+        const y2 = 200 + 165 * Math.sin(angle);
         return (
-          <circle
+          <line
             key={i}
-            cx={cx}
-            cy={cy}
-            r={i % 3 === 0 ? 2.5 : 1.5}
-            fill={i % 3 === 0 ? goldLight : goldDark}
-            opacity={0.6}
+            x1={x1}
+            y1={y1}
+            x2={x2}
+            y2={y2}
+            stroke={goldDark}
+            strokeWidth="3"
+            strokeLinecap="round"
           />
         );
       })}
 
-      {/* The "S" letterform */}
+      {/* Inner concentric circular frame ring */}
+      <circle cx="200" cy="200" r="156" fill="none" stroke={strokeColor} strokeWidth="4" />
+      <circle cx="200" cy="200" r="148" fill="none" stroke={strokeColor} strokeWidth="1.5" />
+
+      {/* Central Currency Glyphs - The iconic Sidicoin S with Dogecoin-style currency crossbar */}
+      {/* Crossbar piercing cleanly through the center waist */}
+      <rect
+        x="108"
+        y="190"
+        width="184"
+        height="20"
+        rx="10"
+        fill={strokeColor === navy ? navy : charFill}
+      />
+      {isWhite && (
+        <rect
+          x="112"
+          y="193"
+          width="176"
+          height="14"
+          rx="7"
+          fill={charFill}
+        />
+      )}
+
+      {/* Bold S Lettermark */}
       <text
         x="200"
-        y="240"
+        y="256"
         textAnchor="middle"
-        fontFamily="Georgia, 'Times New Roman', serif"
-        fontSize="180"
-        fontWeight="bold"
-        fill={navy}
-        opacity="0.9"
-        filter="url(#innerGlow)"
+        fontFamily="Impact, 'Arial Black', -apple-system, sans-serif"
+        fontSize="196"
+        fontWeight="900"
+        letterSpacing="-4"
+        fill={charFill}
+        stroke={strokeColor}
+        strokeWidth={isWhite ? "8" : "0"}
+        paintOrder="stroke fill"
       >
         S
       </text>
 
-      {/* Strike-through lines */}
-      <rect x="138" y="165" width="124" height="4" rx="2" fill={navy} opacity="0.7" />
-      <rect x="138" y="228" width="124" height="4" rx="2" fill={navy} opacity="0.7" />
-
-      {/* Highlight arc */}
-      <path
-        d="M 120 120 A 130 130 0 0 1 280 80"
-        fill="none"
-        stroke="white"
-        strokeWidth="2"
-        strokeOpacity="0.15"
-        strokeLinecap="round"
+      {/* Sharp inner crossbar accent */}
+      <rect
+        x="122"
+        y="194"
+        width="156"
+        height="12"
+        rx="6"
+        fill={charFill}
       />
     </svg>
   );
 }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-   FULL LOGO WITH TEXT
+   FULL LOGO WITH TEXT — Dogecoin-Style Full Lockup
    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 function SidicoinFullLogo({ width = 600, dark = false }: { width?: number; dark?: boolean }) {
   const bg = dark ? navy : "transparent";
   const textColor = dark ? white : navy;
-  const subColor = dark ? goldLight : gold;
+  const subColor = dark ? goldLight : goldDark;
+
   return (
     <svg
       width={width}
@@ -125,63 +127,71 @@ function SidicoinFullLogo({ width = 600, dark = false }: { width?: number; dark?
       xmlns="http://www.w3.org/2000/svg"
     >
       {dark && <rect width="600" height="330" rx="20" fill={bg} />}
-      <defs>
-        <linearGradient id={`fg-${dark ? "d" : "l"}`} x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor={goldLight} />
-          <stop offset="50%" stopColor={gold} />
-          <stop offset="100%" stopColor={goldDark} />
-        </linearGradient>
-        <linearGradient id={`fgShine-${dark ? "d" : "l"}`} x1="0%" y1="0%" x2="50%" y2="50%">
-          <stop offset="0%" stopColor="#FFF5D4" stopOpacity="0.5" />
-          <stop offset="100%" stopColor="#FFF5D4" stopOpacity="0" />
-        </linearGradient>
-        <filter id={`fgShadow-${dark ? "d" : "l"}`}>
-          <feDropShadow dx="0" dy="4" stdDeviation="8" floodColor={goldDark} floodOpacity="0.3" />
-        </filter>
-      </defs>
 
-      {/* Coin */}
-      <g transform="translate(300, 120)" filter={`url(#fgShadow-${dark ? "d" : "l"})`}>
-        <circle r="95" fill={`url(#fg-${dark ? "d" : "l"})`} />
-        <circle r="95" fill={`url(#fgShine-${dark ? "d" : "l"})`} />
-        <circle r="86" fill="none" stroke={goldLight} strokeWidth="1" strokeOpacity="0.5" />
-        <circle r="82" fill="none" stroke={goldDark} strokeWidth="0.5" strokeOpacity="0.3" />
+      {/* Coin Icon */}
+      <g transform="translate(300, 115)">
+        {/* Outer coin border */}
+        <circle r="96" fill={goldDark} />
+
+        {/* Main coin face */}
+        <circle r="89" fill={gold} />
+
+        {/* Milled coin edge notches */}
         {Array.from({ length: 36 }).map((_, i) => {
           const angle = (i * 10 * Math.PI) / 180;
+          const x1 = 88 * Math.cos(angle);
+          const y1 = 88 * Math.sin(angle);
+          const x2 = 82 * Math.cos(angle);
+          const y2 = 82 * Math.sin(angle);
           return (
-            <circle
+            <line
               key={i}
-              cx={89 * Math.cos(angle)}
-              cy={89 * Math.sin(angle)}
-              r={i % 3 === 0 ? 1.8 : 1}
-              fill={i % 3 === 0 ? goldLight : goldDark}
-              opacity={0.5}
+              x1={x1}
+              y1={y1}
+              x2={x2}
+              y2={y2}
+              stroke={goldDark}
+              strokeWidth="2"
+              strokeLinecap="round"
             />
           );
         })}
+
+        {/* Inner concentric ring */}
+        <circle r="78" fill="none" stroke={navy} strokeWidth="2.5" />
+        <circle r="74" fill="none" stroke={navy} strokeWidth="1" />
+
+        {/* Crossbar */}
+        <rect x="-50" y="-5" width="100" height="10" rx="5" fill={white} stroke={navy} strokeWidth="3" paintOrder="stroke fill" />
+
+        {/* S glyph */}
         <text
-          y="22"
+          y="31"
           textAnchor="middle"
-          fontFamily="Georgia, 'Times New Roman', serif"
-          fontSize="100"
-          fontWeight="bold"
-          fill={dark ? navy : navy}
-          opacity="0.85"
+          fontFamily="Impact, 'Arial Black', -apple-system, sans-serif"
+          fontSize="102"
+          fontWeight="900"
+          letterSpacing="-2"
+          fill={white}
+          stroke={navy}
+          strokeWidth="6"
+          paintOrder="stroke fill"
         >
           S
         </text>
-        <rect x="-34" y="-17" width="68" height="2.5" rx="1.25" fill={navy} opacity="0.6" />
-        <rect x="-34" y="17" width="68" height="2.5" rx="1.25" fill={navy} opacity="0.6" />
+
+        {/* Center bar highlight */}
+        <rect x="-42" y="-3" width="84" height="6" rx="3" fill={white} />
       </g>
 
       {/* Text */}
       <text
         x="300"
-        y="262"
+        y="266"
         textAnchor="middle"
         fontFamily="'Segoe UI', Helvetica, Arial, sans-serif"
-        fontSize="42"
-        fontWeight="800"
+        fontSize="44"
+        fontWeight="900"
         letterSpacing="8"
         fill={textColor}
       >
@@ -189,22 +199,22 @@ function SidicoinFullLogo({ width = 600, dark = false }: { width?: number; dark?
       </text>
       <text
         x="300"
-        y="295"
+        y="298"
         textAnchor="middle"
         fontFamily="'Segoe UI', Helvetica, Arial, sans-serif"
         fontSize="13"
-        fontWeight="500"
+        fontWeight="700"
         letterSpacing="5"
         fill={subColor}
       >
-        {"AFRICA'S DIGITAL CURRENCY"}
+        AFRICA'S DIGITAL CURRENCY
       </text>
     </svg>
   );
 }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-   TELEGRAM WELCOME BANNER
+   TELEGRAM WELCOME BANNER — Flat Dogecoin-Inspired
    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 function WelcomeBanner({ width = 800 }: { width?: number }) {
   const h = width * 0.45;
@@ -216,157 +226,102 @@ function WelcomeBanner({ width = 800 }: { width?: number }) {
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
     >
-      <defs>
-        <linearGradient id="bannerBg" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor={navy} />
-          <stop offset="100%" stopColor={navyLight} />
-        </linearGradient>
-        <linearGradient id="bannerCoin" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor={goldLight} />
-          <stop offset="50%" stopColor={gold} />
-          <stop offset="100%" stopColor={goldDark} />
-        </linearGradient>
-        <linearGradient id="bannerShine" x1="0%" y1="0%" x2="50%" y2="50%">
-          <stop offset="0%" stopColor="#FFF5D4" stopOpacity="0.5" />
-          <stop offset="100%" stopColor="#FFF5D4" stopOpacity="0" />
-        </linearGradient>
-        <filter id="bannerGlow">
-          <feGaussianBlur stdDeviation="30" result="glow" />
-          <feMerge>
-            <feMergeNode in="glow" />
-            <feMergeNode in="SourceGraphic" />
-          </feMerge>
-        </filter>
-        <radialGradient id="glowOrb" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor={gold} stopOpacity="0.15" />
-          <stop offset="100%" stopColor={gold} stopOpacity="0" />
-        </radialGradient>
-      </defs>
+      {/* Solid deep navy background */}
+      <rect width="800" height="360" rx="16" fill={navy} />
 
-      {/* Background */}
-      <rect width="800" height="360" rx="16" fill="url(#bannerBg)" />
+      {/* Decorative solid corner badges */}
+      <rect x="0" y="0" width="800" height="6" fill={gold} />
+      <rect x="0" y="354" width="800" height="6" fill={gold} />
 
-      {/* Decorative grid lines */}
-      {Array.from({ length: 8 }).map((_, i) => (
-        <line
-          key={`h${i}`}
-          x1="0"
-          y1={i * 50}
-          x2="800"
-          y2={i * 50}
-          stroke={goldLight}
-          strokeWidth="0.3"
-          strokeOpacity="0.08"
-        />
-      ))}
-      {Array.from({ length: 16 }).map((_, i) => (
-        <line
-          key={`v${i}`}
-          x1={i * 55}
-          y1="0"
-          x2={i * 55}
-          y2="360"
-          stroke={goldLight}
-          strokeWidth="0.3"
-          strokeOpacity="0.08"
-        />
-      ))}
+      {/* Coin Icon */}
+      <g transform="translate(190, 180)">
+        <circle r="105" fill={goldDark} />
+        <circle r="97" fill={gold} />
 
-      {/* Glow behind coin */}
-      <circle cx="180" cy="180" r="160" fill="url(#glowOrb)" />
-
-      {/* Coin */}
-      <g transform="translate(180, 160)" filter="url(#bannerGlow)">
-        <circle r="90" fill="url(#bannerCoin)" />
-        <circle r="90" fill="url(#bannerShine)" />
-        <circle r="82" fill="none" stroke={goldLight} strokeWidth="1" strokeOpacity="0.4" />
+        {/* Milled coin edge notches */}
         {Array.from({ length: 36 }).map((_, i) => {
           const angle = (i * 10 * Math.PI) / 180;
+          const x1 = 96 * Math.cos(angle);
+          const y1 = 96 * Math.sin(angle);
+          const x2 = 90 * Math.cos(angle);
+          const y2 = 90 * Math.sin(angle);
           return (
-            <circle
+            <line
               key={i}
-              cx={85 * Math.cos(angle)}
-              cy={85 * Math.sin(angle)}
-              r={i % 3 === 0 ? 1.5 : 0.8}
-              fill={i % 3 === 0 ? goldLight : goldDark}
-              opacity={0.5}
+              x1={x1}
+              y1={y1}
+              x2={x2}
+              y2={y2}
+              stroke={goldDark}
+              strokeWidth="2.5"
+              strokeLinecap="round"
             />
           );
         })}
+
+        {/* Inset concentric circles */}
+        <circle r="85" fill="none" stroke={navy} strokeWidth="3" />
+        <circle r="80" fill="none" stroke={navy} strokeWidth="1" />
+
+        {/* Crossbar */}
+        <rect x="-56" y="-6" width="112" height="12" rx="6" fill={white} stroke={navy} strokeWidth="4" paintOrder="stroke fill" />
+
+        {/* S symbol */}
         <text
-          y="20"
+          y="35"
           textAnchor="middle"
-          fontFamily="Georgia, 'Times New Roman', serif"
-          fontSize="96"
-          fontWeight="bold"
-          fill={navy}
-          opacity="0.85"
+          fontFamily="Impact, 'Arial Black', -apple-system, sans-serif"
+          fontSize="114"
+          fontWeight="900"
+          letterSpacing="-3"
+          fill={white}
+          stroke={navy}
+          strokeWidth="7"
+          paintOrder="stroke fill"
         >
           S
         </text>
-        <rect x="-32" y="-16" width="64" height="2.5" rx="1.25" fill={navy} opacity="0.6" />
-        <rect x="-32" y="16" width="64" height="2.5" rx="1.25" fill={navy} opacity="0.6" />
+
+        <rect x="-46" y="-4" width="92" height="8" rx="4" fill={white} />
       </g>
-
-      {/* Floating particles */}
-      {[
-        { x: 350, y: 60, r: 3 },
-        { x: 420, y: 120, r: 2 },
-        { x: 550, y: 80, r: 2.5 },
-        { x: 680, y: 140, r: 1.5 },
-        { x: 380, y: 280, r: 2 },
-        { x: 620, y: 300, r: 1.8 },
-        { x: 750, y: 250, r: 2.2 },
-        { x: 500, y: 200, r: 1.2 },
-      ].map((p, i) => (
-        <circle key={i} cx={p.x} cy={p.y} r={p.r} fill={goldLight} opacity={0.3 + (i % 3) * 0.15} />
-      ))}
-
-      {/* Network connection lines */}
-      <line x1="350" y1="60" x2="420" y2="120" stroke={gold} strokeWidth="0.5" strokeOpacity="0.12" />
-      <line x1="420" y1="120" x2="550" y2="80" stroke={gold} strokeWidth="0.5" strokeOpacity="0.12" />
-      <line x1="550" y1="80" x2="680" y2="140" stroke={gold} strokeWidth="0.5" strokeOpacity="0.12" />
-      <line x1="380" y1="280" x2="500" y2="200" stroke={gold} strokeWidth="0.5" strokeOpacity="0.12" />
-      <line x1="500" y1="200" x2="620" y2="300" stroke={gold} strokeWidth="0.5" strokeOpacity="0.12" />
 
       {/* Welcome text */}
       <text
         x="520"
-        y="130"
+        y="118"
         textAnchor="middle"
         fontFamily="'Segoe UI', Helvetica, Arial, sans-serif"
-        fontSize="14"
-        fontWeight="500"
-        letterSpacing="5"
+        fontSize="15"
+        fontWeight="700"
+        letterSpacing="6"
         fill={goldLight}
-        opacity="0.8"
       >
         WELCOME TO
       </text>
       <text
         x="520"
-        y="185"
+        y="176"
         textAnchor="middle"
         fontFamily="'Segoe UI', Helvetica, Arial, sans-serif"
-        fontSize="52"
-        fontWeight="800"
+        fontSize="54"
+        fontWeight="900"
         letterSpacing="4"
         fill={white}
       >
         SIDICOIN
       </text>
 
-      {/* Gold divider */}
-      <rect x="430" y="205" width="180" height="2" rx="1" fill={gold} opacity="0.5" />
+      {/* Solid gold divider bar */}
+      <rect x="420" y="196" width="200" height="4" rx="2" fill={gold} />
 
       {/* Tagline */}
       <text
         x="520"
-        y="240"
+        y="235"
         textAnchor="middle"
         fontFamily="'Segoe UI', Helvetica, Arial, sans-serif"
-        fontSize="14"
-        fontWeight="500"
+        fontSize="15"
+        fontWeight="700"
         letterSpacing="3"
         fill={goldLight}
       >
@@ -377,8 +332,8 @@ function WelcomeBanner({ width = 800 }: { width?: number }) {
         y="262"
         textAnchor="middle"
         fontFamily="'Segoe UI', Helvetica, Arial, sans-serif"
-        fontSize="14"
-        fontWeight="500"
+        fontSize="15"
+        fontWeight="700"
         letterSpacing="3"
         fill={goldLight}
       >
@@ -386,17 +341,16 @@ function WelcomeBanner({ width = 800 }: { width?: number }) {
       </text>
 
       {/* TON badge */}
-      <rect x="470" y="290" width="100" height="24" rx="12" fill={white} fillOpacity="0.08" />
+      <rect x="465" y="288" width="110" height="28" rx="14" fill={white} fillOpacity="0.15" />
       <text
         x="520"
         y="306"
         textAnchor="middle"
         fontFamily="'Segoe UI', Helvetica, Arial, sans-serif"
-        fontSize="10"
-        fontWeight="600"
-        letterSpacing="2"
+        fontSize="11"
+        fontWeight="700"
+        letterSpacing="2.5"
         fill={white}
-        opacity="0.5"
       >
         ON TON
       </text>
@@ -597,21 +551,32 @@ export default function BrandAssetsPage() {
 
         {/* Assets */}
         <div style={{ display: "flex", flexDirection: "column", gap: "40px" }}>
-          {/* 1. Icon Logo on White */}
+          {/* 1. Icon Logo (White Glyph - Dogecoin Edition) */}
           <SvgAssetCard
-            title="Coin Logo"
-            description="The iconic golden SIDI coin with the embossed S lettermark, African kente-inspired rim details, and metallic gold gradient. Perfect for app icons, favicons, profile pictures, and any square placement."
-            tag="ICON"
-            filename="sidicoin-coin-logo.png"
+            title="Dogecoin-Style Coin (White Glyph Edition)"
+            description="Pure Dogecoin aesthetic: vibrant solid gold coin disc (#C8942A), dark gold minted rim, precision milled coin notches, and the bold S currency glyph with a horizontal crossbar in crisp solid white. No gradients, no shadows, no zaps or sparkles."
+            tag="DOGE STYLE"
+            filename="sidicoin-doge-white-logo.png"
             bgColor="#EFEBE3"
           >
-            <SidicoinLogo size={280} />
+            <SidicoinLogo size={280} glyphColor="white" />
           </SvgAssetCard>
 
-          {/* 2. Full Logo Light */}
+          {/* 2. Icon Logo (Navy Glyph - Executive Edition) */}
+          <SvgAssetCard
+            title="Dogecoin-Style Coin (Navy Glyph Edition)"
+            description="Deep navy lettermark version on solid coin gold. Clean, high-contrast, flat solid vector rendering ideal for light backgrounds, stamps, and high-visibility placements."
+            tag="NAVY GLYPH"
+            filename="sidicoin-doge-navy-logo.png"
+            bgColor="#EFEBE3"
+          >
+            <SidicoinLogo size={280} glyphColor="navy" />
+          </SvgAssetCard>
+
+          {/* 3. Full Logo Light */}
           <SvgAssetCard
             title="Full Logo (Light)"
-            description="Complete Sidicoin logo with coin icon and SIDICOIN wordmark on a transparent background. Ideal for websites, documents, presentations, and light-themed platforms."
+            description="Complete Sidicoin lockup featuring the flat Dogecoin-style coin emblem with the bold SIDICOIN wordmark on transparent background. Ideal for light themes and documents."
             tag="LIGHT"
             filename="sidicoin-logo-light.png"
             bgColor="#EFEBE3"
@@ -619,10 +584,10 @@ export default function BrandAssetsPage() {
             <SidicoinFullLogo width={520} dark={false} />
           </SvgAssetCard>
 
-          {/* 3. Full Logo Dark */}
+          {/* 4. Full Logo Dark */}
           <SvgAssetCard
             title="Full Logo (Navy)"
-            description="Complete Sidicoin logo on deep navy background. Use for social media banners, marketing materials, and dark-themed platforms. Features the gold accent tagline."
+            description="Complete Sidicoin logo lockup on deep solid navy background (#1B2A4A) with gold subtitle accents. Zero shadows, zero gradients, maximum brand contrast."
             tag="NAVY"
             filename="sidicoin-logo-navy.png"
             bgColor={navy}
@@ -630,23 +595,23 @@ export default function BrandAssetsPage() {
             <SidicoinFullLogo width={520} dark={true} />
           </SvgAssetCard>
 
-          {/* 4. Telegram Profile */}
+          {/* 5. Telegram Profile */}
           <SvgAssetCard
             title="Telegram Profile Picture"
-            description="Square format coin logo optimized for Telegram bot avatar, social media profiles, and app icons. Stays perfectly crisp even at small sizes like 64x64 pixels."
+            description="Square avatar optimized for the Telegram bot profile and mobile apps. Crisp and punchy at any size from 32x32 up to 4K resolution."
             tag="SQUARE"
             filename="sidicoin-telegram-avatar.png"
             bgColor={navy}
           >
             <div style={{ padding: "20px" }}>
-              <SidicoinLogo size={240} />
+              <SidicoinLogo size={240} glyphColor="white" />
             </div>
           </SvgAssetCard>
 
-          {/* 5. Welcome Banner */}
+          {/* 6. Welcome Banner */}
           <SvgAssetCard
             title="Welcome Banner"
-            description="Wide-format banner with the golden coin, SIDICOIN wordmark, blockchain network visualization, and the tagline. Perfect for Telegram channel headers, Twitter/X banners, and website hero sections."
+            description="Solid flat wide banner for Telegram channel headers, welcome messages, and web hero placements with the gold coin, bold typography, and TON badge."
             tag="BANNER"
             filename="sidicoin-welcome-banner.png"
             bgColor="#0F1D36"

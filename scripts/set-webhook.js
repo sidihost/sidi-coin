@@ -38,6 +38,35 @@ async function main() {
     console.error('\u274C Webhook setup failed:', data.description);
     process.exit(1);
   }
+
+  // Register command menu in Telegram
+  const commands = [
+    { command: 'start', description: 'Launch wallet & claim 500 SIDI' },
+    { command: 'wallet', description: 'View balance & TON address' },
+    { command: 'send', description: 'Send SIDI to any Telegram user' },
+    { command: 'buy', description: 'Buy SIDI with Nigerian Naira' },
+    { command: 'sell', description: 'Cash out SIDI to bank account' },
+    { command: 'refer', description: 'Referral link & rewards' },
+    { command: 'checkin', description: 'Claim daily check-in bonus' },
+    { command: 'history', description: 'View recent transactions' },
+    { command: 'price', description: 'Live SIDI / NGN exchange rate' },
+    { command: 'leaderboard', description: 'Top SIDI holders' },
+    { command: 'help', description: 'FAQ & AI assistant' },
+  ];
+
+  try {
+    const cmdRes = await fetch(`https://api.telegram.org/bot${botToken}/setMyCommands`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ commands }),
+    });
+    const cmdData = await cmdRes.json();
+    if (cmdData.ok) {
+      console.log('\u2705 Bot commands registered with Telegram menu');
+    }
+  } catch (err) {
+    console.warn('\u26A0\uFE0F Could not register bot commands:', err.message);
+  }
 }
 
 main().catch((error) => {

@@ -86,11 +86,12 @@ async function handlePaymentSuccess(reference) {
   }
 
   if (pending.type === 'buy') {
-    // Credit SIDI to user
-    const newBalance = user.sidi_balance + pending.sidi_amount;
+    // Credit SIDI to user with exact 2-decimal precision
+    const creditAmount = Math.round(Number(pending.sidi_amount) * 100) / 100;
+    const newBalance = Math.round((Number(user.sidi_balance) + creditAmount) * 100) / 100;
     await updateUser(pending.telegram_id, {
       sidi_balance: newBalance,
-      total_bought_ngn: (user.total_bought_ngn || 0) + pending.ngn_amount,
+      total_bought_ngn: Math.round(((Number(user.total_bought_ngn) || 0) + Number(pending.ngn_amount)) * 100) / 100,
       pending_action: null,
       pending_data: null,
     });

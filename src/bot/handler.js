@@ -231,43 +231,8 @@ async function handlePendingAction(chatId, user, text) {
       return sendMessage(chatId, `\u2726 ${bank.name} selected.\n\nEnter your 10-digit account number: \u2726`);
     }
 
-    case 'update_bank_account': {
-      if (!/^\d{10}$/.test(text.trim())) {
-        return sendMessage(chatId, '\u2726 Please enter a valid 10-digit account number \u2726');
-      }
-      const loadingMsg = await sendMessage(chatId, '\uD83C\uDFE6 Verifying account...');
-      try {
-        const { verifyBankAccount } = await import('../services/korapay.js');
-        const result = await verifyBankAccount(user.pending_data.bank_code, text.trim());
-        const accountName = result?.data?.account_name || 'Account Holder';
-
-        await updateUser(user.telegram_id, {
-          bank_name: user.pending_data.bank_name,
-          bank_code: user.pending_data.bank_code,
-          bank_account: text.trim(),
-          bank_account_name: accountName,
-          pending_action: null,
-          pending_data: null,
-        });
-
-        const { editMessage: editMsg } = await import('../services/notifications.js');
-        if (loadingMsg?.result?.message_id) {
-          await editMsg(
-            chatId,
-            loadingMsg.result.message_id,
-            `\u2726 Bank Updated!\n\n${user.pending_data.bank_name} \u2014 ${text.trim()}\n${accountName} \u2726`,
-            mainMenuKeyboard()
-          );
-        }
-      } catch {
-        const { editMessage: editMsg } = await import('../services/notifications.js');
-        if (loadingMsg?.result?.message_id) {
-          await editMsg(chatId, loadingMsg.result.message_id, '\u2726 Could not verify. Please try again \u2726', mainMenuKeyboard());
-        }
-        await updateUser(user.telegram_id, { pending_action: null, pending_data: null });
-      }
-      return;
-    }
+    case 'update_bank_account':
+      return processSellAccountNumber(chatId, user, text.trim());
 
     default:
       // Unknown pending action, clear and use AI

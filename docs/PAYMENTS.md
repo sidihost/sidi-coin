@@ -230,8 +230,8 @@ the bot, the notifications, the AI prompt and the marketing copy can never drift
 | Referral milestones | 5 → +100, 10 → +250, 25 → +750, 50 → +2,000 SIDI |
 | Daily check-in (free / premium) | 10 / 25 SIDI |
 | 7-day streak bonus | +100 SIDI |
-| Transfer fee (user to user) | 0% |
-| Buy / sell fee (free / premium) | 1.5% / 0.8% |
+| Transfer fee (user to user) | 0% (Free) |
+| Buy / sell fee (free / premium) | 0% / 0% (Free — zero charges) |
 | Daily transfer limit (free / premium) | 50,000 / 500,000 SIDI |
 
 Rules enforced in code:

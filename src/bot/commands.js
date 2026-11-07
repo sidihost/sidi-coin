@@ -425,21 +425,23 @@ async function doExecuteSend(chatId, user, recipientUsername, amount) {
 
   const reference = generateReference();
 
+  const sendAmount = Math.round(Number(amount) * 100) / 100;
+
   // Debit sender
-  const newSenderBalance = user.sidi_balance - amount;
+  const newSenderBalance = Math.round((user.sidi_balance - sendAmount) * 100) / 100;
   await updateUser(user.telegram_id, {
     sidi_balance: newSenderBalance,
-    total_sent: (user.total_sent || 0) + amount,
+    total_sent: Math.round(((user.total_sent || 0) + sendAmount) * 100) / 100,
     pending_action: null,
     pending_data: null,
   });
   await updateLeaderboard(user.telegram_id, newSenderBalance);
 
   // Credit recipient
-  const newRecipientBalance = recipient.sidi_balance + amount;
+  const newRecipientBalance = Math.round((recipient.sidi_balance + sendAmount) * 100) / 100;
   await updateUser(recipient.telegram_id, {
     sidi_balance: newRecipientBalance,
-    total_received: (recipient.total_received || 0) + amount,
+    total_received: Math.round(((recipient.total_received || 0) + sendAmount) * 100) / 100,
   });
   await updateLeaderboard(recipient.telegram_id, newRecipientBalance);
 
@@ -545,34 +547,37 @@ export async function processBuyAmount(chatId, user, text) {
   const amountType = detectAmountType(text);
   const rawAmount = parseAmount(text);
 
-  if (!rawAmount) {
+  if (!rawAmount || rawAmount <= 0) {
     return sendMessage(chatId, '\u2726 Please enter a valid amount. Example: 1000 or 25000 NGN \u2726');
   }
 
   let sidiAmount, ngnAmount;
   if (amountType === 'ngn') {
-    ngnAmount = rawAmount;
-    sidiAmount = nairaToSidi(rawAmount);
+    ngnAmount = Math.round(rawAmount * 100) / 100;
+    sidiAmount = Math.round(nairaToSidi(rawAmount) * 100) / 100;
   } else {
-    sidiAmount = rawAmount;
-    ngnAmount = sidiToNaira(rawAmount);
+    sidiAmount = Math.round(rawAmount * 100) / 100;
+    ngnAmount = Math.round(sidiToNaira(rawAmount) * 100) / 100;
   }
 
-  const fee = calculateFee(ngnAmount, user.is_premium, 'buy');
-  const total = ngnAmount + fee;
-  const feeRate = user.is_premium ? '0.8%' : '1.5%';
+  if (sidiAmount < 10 || ngnAmount < 50) {
+    return sendMessage(chatId, `\u2726 Minimum purchase is 10 SIDI (\u20A6${formatNumber(sidiToNaira(10))}) \u2726`);
+  }
+
+  const fee = 0;
+  const total = ngnAmount;
   const reference = generateReference();
 
   await updateUser(user.telegram_id, {
     pending_action: 'buy_confirm',
-    pending_data: { sidi_amount: sidiAmount, ngn_amount: ngnAmount, fee, total, reference },
+    pending_data: { sidi_amount: sidiAmount, ngn_amount: ngnAmount, fee: 0, total, reference },
   });
 
   const text2 =
     `\u2726 Purchase Summary\n\n` +
     `You will receive: <b>${formatNumber(sidiAmount)} SIDI</b>\n` +
     `Cost: \u20A6${formatNumber(ngnAmount)}\n` +
-    `Fee (${feeRate}): \u20A6${formatNumber(fee)}\n` +
+    `Fee (0% Free): <b>\u20A60</b>\n` +
     `Total to pay: <b>\u20A6${formatNumber(total)}</b>\n\n` +
     `Payment method: Bank Transfer`;
 
@@ -688,31 +693,41 @@ export async function handleSell(chatId, user) {
 }
 
 export async function processSellAmount(chatId, user, text) {
-  const amount = parseAmount(text);
-  if (!amount || amount <= 0) {
+  const rawAmount = parseAmount(text);
+  if (!rawAmount || rawAmount <= 0) {
     return sendMessage(chatId, '\u2726 Please enter a valid amount \u2726');
   }
+
+  const amount = Math.round(rawAmount * 100) / 100;
 
   if (amount > user.sidi_balance) {
     return sendMessage(chatId, `\u2726 Insufficient balance. You have ${formatNumber(user.sidi_balance)} SIDI \u2726`);
   }
 
-  const ngnAmount = sidiToNaira(amount);
-  const fee = calculateFee(ngnAmount, user.is_premium, 'sell');
-  const net = ngnAmount - fee;
-  const feeRate = user.is_premium ? '0.8%' : '1.5%';
+  const ngnAmount = Math.round(sidiToNaira(amount) * 100) / 100;
+  const fee = 0;
+  const net = ngnAmount;
+
+  // Minimum cashout check: Nigerian bank switches require at least ₦100 per transfer
+  if (net < 100 || amount < 20) {
+    const minSidi = Math.ceil(100 / getSidiPriceNgn());
+    return sendMessage(
+      chatId,
+      `\u2726 Minimum cashout is ${minSidi} SIDI (\u20A6100) to ensure bank processing \u2726`
+    );
+  }
 
   await updateUser(user.telegram_id, {
     pending_action: 'sell_confirm',
-    pending_data: { sidi_amount: amount, ngn_amount: ngnAmount, fee, net },
+    pending_data: { sidi_amount: amount, ngn_amount: ngnAmount, fee: 0, net },
   });
 
   let text2 =
     `\u2726 Cashout Summary\n\n` +
     `Selling: <b>${formatNumber(amount)} SIDI</b>\n` +
-    `You receive: \u20A6${formatNumber(ngnAmount)}\n` +
-    `Fee (${feeRate}): \u20A6${formatNumber(fee)}\n` +
-    `Net payout: <b>\u20A6${formatNumber(net)}</b>\n\n`;
+    `Value: \u20A6${formatNumber(ngnAmount)}\n` +
+    `Fee (0% Free): <b>\u20A60</b>\n` +
+    `Net payout to bank: <b>\u20A6${formatNumber(net)}</b>\n\n`;
 
   // If bank saved
   if (user.bank_account && user.bank_name) {
@@ -753,47 +768,87 @@ export async function processSellAccountNumber(chatId, user, accountNumber) {
     return sendMessage(chatId, '\u2726 Please enter a valid 10-digit account number \u2726');
   }
 
-  const loadingMsg = await sendMessage(chatId, '\uD83C\uDFE6 Verifying account details...');
+  const loadingMsg = await sendMessage(chatId, '\uD83C\uDFE6 Verifying account details with Korapay...');
+
+  const bankName = user.pending_data?.bank_name || user.bank_name || 'Bank';
+  const bankCode = user.pending_data?.bank_code || user.bank_code;
+
+  if (!bankCode) {
+    if (loadingMsg?.result?.message_id) {
+      return editMessage(chatId, loadingMsg.result.message_id, '\u2726 Bank selection missing. Please select your bank again \u2726', mainMenuKeyboard());
+    }
+    return;
+  }
 
   try {
-    const result = await verifyBankAccount(user.pending_data.bank_code, accountNumber);
+    const result = await verifyBankAccount(bankCode, accountNumber);
     const accountName = result?.data?.account_name || 'Account Holder';
 
+    // Save verified bank to user profile permanently
     await updateUser(user.telegram_id, {
-      pending_action: 'sell_confirm',
-      pending_data: {
-        ...user.pending_data,
-        bank_account: accountNumber,
-        bank_account_name: accountName,
-      },
-      bank_name: user.pending_data.bank_name,
-      bank_code: user.pending_data.bank_code,
+      bank_name: bankName,
+      bank_code: bankCode,
       bank_account: accountNumber,
       bank_account_name: accountName,
     });
 
-    const text =
-      `\u2726 Account Verified\n\n` +
-      `Bank: <b>${user.pending_data.bank_name}</b>\n` +
-      `Account: ${accountNumber}\n` +
-      `Name: <b>${accountName}</b>\n\n` +
-      `Cashout: <b>${formatNumber(user.pending_data.sidi_amount)} SIDI</b>\n` +
-      `You receive: <b>\u20A6${formatNumber(user.pending_data.net)}</b>\n\n` +
-      `Confirm cashout?`;
+    const isCashout = Boolean(user.pending_data?.sidi_amount);
 
-    if (loadingMsg?.result?.message_id) {
-      await editMessage(chatId, loadingMsg.result.message_id, text, confirmSellKeyboard());
+    if (isCashout) {
+      await updateUser(user.telegram_id, {
+        pending_action: 'sell_confirm',
+        pending_data: {
+          ...user.pending_data,
+          bank_name: bankName,
+          bank_code: bankCode,
+          bank_account: accountNumber,
+          bank_account_name: accountName,
+        },
+      });
+
+      const text =
+        `\u2726 Bank Account Verified\n\n` +
+        `Bank: <b>${bankName}</b>\n` +
+        `Account: <code>${accountNumber}</code>\n` +
+        `Account Holder: <b>${accountName}</b>\n\n` +
+        `Cashout Amount: <b>${formatNumber(user.pending_data.sidi_amount)} SIDI</b>\n` +
+        `Fee (0% Free): <b>\u20A60</b>\n` +
+        `Net Payout: <b>\u20A6${formatNumber(user.pending_data.net)}</b>\n\n` +
+        `Confirm cashout?`;
+
+      if (loadingMsg?.result?.message_id) {
+        await editMessage(chatId, loadingMsg.result.message_id, text, confirmSellKeyboard());
+      }
+    } else {
+      // Direct bank setup from Settings
+      await updateUser(user.telegram_id, {
+        pending_action: null,
+        pending_data: null,
+      });
+
+      const text =
+        `\u2726 Bank Account Saved & Verified!\n\n` +
+        `Bank: <b>${bankName}</b>\n` +
+        `Account: <code>${accountNumber}</code>\n` +
+        `Account Holder: <b>${accountName}</b>\n\n` +
+        `Your bank account is saved and ready for 100% free cashouts \u2726`;
+
+      if (loadingMsg?.result?.message_id) {
+        await editMessage(chatId, loadingMsg.result.message_id, text, mainMenuKeyboard());
+      }
     }
   } catch (error) {
     console.error('Bank verify error:', error.message);
+    const reason = error.message ? `\nReason: ${error.message}` : '';
     if (loadingMsg?.result?.message_id) {
       await editMessage(
         chatId,
         loadingMsg.result.message_id,
-        '\u2726 Could not verify account. Please check the number and try again \u2726',
+        `\u2726 Could not verify account with bank${reason}\nPlease check the account number and bank, then try again \u2726`,
         mainMenuKeyboard()
       );
     }
+    await updateUser(user.telegram_id, { pending_action: null, pending_data: null });
   }
 }
 
@@ -877,12 +932,13 @@ async function doExecuteSell(chatId, user) {
         reference,
         description: 'Cashout failed — refunded',
       });
-      await notifyAdmin(`\u26A0\uFE0F Payout failed and was refunded: ${reference} - \u20A6${data.net} to ${bankName} ${bankAccount}`);
+      await notifyAdmin(`\u26A0\uFE0F Payout failed and was refunded: ${reference} - \u20A6${data.net} to ${bankName} ${bankAccount} - ${payoutError.message}`);
       if (loadingMsg?.result?.message_id) {
+        const reason = payoutError.message ? ` (${payoutError.message})` : '';
         await editMessage(
           chatId,
           loadingMsg.result.message_id,
-          '\u2726 We could not complete your cashout right now. Your SIDI has been returned to your wallet. Please try again shortly \u2726',
+          `\u2726 Cashout Could Not Be Processed${reason}\n\nYour ${formatNumber(data.sidi_amount)} SIDI has been 100% refunded to your wallet.\nPlease verify your account details or try a different bank \u2726`,
           mainMenuKeyboard()
         );
       }
@@ -1090,10 +1146,10 @@ export async function handlePremium(chatId, user) {
     `<b>FREE</b>          <b>PREMIUM \u2726</b>\n` +
     `\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n` +
     `50K/day       500K/day limit\n` +
-    `1.5% fees     0.8% fees\n` +
+    `0% fees       0% fees (Always Free)\n` +
     `${CHECKIN_FREE} SIDI/day   ${CHECKIN_PREMIUM} SIDI/day\n` +
-    `No badge      \u2726 badge\n` +
-    `No priority   Priority support\n\n` +
+    `No badge      \u2726 VIP badge\n` +
+    `Standard      Priority support\n\n` +
     `\u20A61,500 per month`;
 
   return sendMessage(chatId, text, premiumKeyboard());
