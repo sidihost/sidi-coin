@@ -1,14 +1,17 @@
 import crypto from 'crypto';
+import { requireEnv } from '../config/env.js';
 
-const KORAPAY_SECRET = process.env.KORAPAY_SECRET_KEY;
-const KORAPAY_PUBLIC = process.env.KORAPAY_PUBLIC_KEY;
 const BASE_URL = 'https://api.korapay.com/merchant/api/v1';
+
+function korapaySecret() {
+  return requireEnv('KORAPAY_SECRET_KEY');
+}
 
 async function korapayRequest(endpoint, method, body) {
   const url = `${BASE_URL}${endpoint}`;
   const headers = {
     'Content-Type': 'application/json',
-    Authorization: `Bearer ${KORAPAY_SECRET}`,
+    Authorization: `Bearer ${korapaySecret()}`,
   };
 
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -37,7 +40,7 @@ export async function initializeCharge(amount, customerName, customerEmail, refe
     amount,
     currency: 'NGN',
     reference,
-    notification_url: `${process.env.BOT_WEBHOOK_URL}/webhook/korapay`,
+    notification_url: `${requireEnv('BOT_WEBHOOK_URL')}/webhook/korapay`,
     customer: {
       name: customerName,
       email: customerEmail || `${reference}@sidicoin.com`,
@@ -55,7 +58,7 @@ export async function createVirtualBankAccount(amount, customerName, reference) 
     customer: {
       name: customerName,
     },
-    notification_url: `${process.env.BOT_WEBHOOK_URL}/webhook/korapay`,
+    notification_url: `${requireEnv('BOT_WEBHOOK_URL')}/webhook/korapay`,
   });
   return data;
 }
@@ -102,12 +105,22 @@ export async function getBankList() {
 
 // ───── Webhook Verification ─────
 
-export function verifyWebhookSignature(payload, signature) {
-  const hash = crypto
-    .createHmac('sha512', KORAPAY_SECRET)
-    .update(JSON.stringify(payload))
+// Korapay signs the exact bytes of the request body with HMAC-SHA512 using the
+// merchant secret key. Callers must pass the *raw* body (a string/Buffer), not a
+// re-serialised object, otherwise the digest will not match.
+export function verifyWebhookSignature(rawBody, signature) {
+  if (!rawBody || !signature) return false;
+
+  const expected = crypto
+    .createHmac('sha512', korapaySecret())
+    .update(rawBody)
     .digest('hex');
-  return hash === signature;
+
+  const provided = Buffer.from(String(signature), 'utf8');
+  const expectedBuf = Buffer.from(expected, 'utf8');
+
+  if (provided.length !== expectedBuf.length) return false;
+  return crypto.timingSafeEqual(provided, expectedBuf);
 }
 
 // ───── Popular Nigerian Banks ─────

@@ -1,9 +1,35 @@
 import { Redis } from '@upstash/redis';
+import { requireEnv } from '../config/env.js';
+import { getDailyLimit } from '../utils/validation.js';
 
-const redis = new Redis({
-  url: process.env.KV_REST_API_URL,
-  token: process.env.KV_REST_API_TOKEN,
-});
+let client = null;
+
+// Lazily construct the client so that importing this module does not read the
+// environment at load time. This keeps the module safe to import in serverless
+// cold starts and in tooling that only needs the pure helpers.
+export function getRedis() {
+  if (!client) {
+    client = new Redis({
+      url: requireEnv('KV_REST_API_URL'),
+      token: requireEnv('KV_REST_API_TOKEN'),
+    });
+  }
+  return client;
+}
+
+const redis = {
+  get: (...args) => getRedis().get(...args),
+  set: (...args) => getRedis().set(...args),
+  del: (...args) => getRedis().del(...args),
+  incr: (...args) => getRedis().incr(...args),
+  incrby: (...args) => getRedis().incrby(...args),
+  expire: (...args) => getRedis().expire(...args),
+  scan: (...args) => getRedis().scan(...args),
+  zadd: (...args) => getRedis().zadd(...args),
+  zrange: (...args) => getRedis().zrange(...args),
+  zrevrank: (...args) => getRedis().zrevrank(...args),
+  eval: (...args) => getRedis().eval(...args),
+};
 
 // ───── User Operations ─────
 
@@ -53,6 +79,18 @@ export async function addTransaction(telegramId, tx) {
 
 // ───── Daily Limit Tracking ─────
 
+// Read-only view of a user's remaining daily transfer allowance. Used for
+// pre-flight checks so that merely previewing a transfer never mutates state.
+export async function getDailyLimitStatus(telegramId) {
+  const user = await getUser(telegramId);
+  if (!user) return { allowed: false, remaining: 0 };
+
+  const today = new Date().toISOString().split('T')[0];
+  const dailyTotal = user.daily_tx_date === today ? user.daily_tx_total || 0 : 0;
+  const limit = getDailyLimit(user.is_premium);
+  return { allowed: dailyTotal < limit, remaining: limit - dailyTotal };
+}
+
 export async function checkAndUpdateDailyLimit(telegramId, amount) {
   const user = await getUser(telegramId);
   if (!user) return { allowed: false, remaining: 0 };
@@ -64,7 +102,7 @@ export async function checkAndUpdateDailyLimit(telegramId, amount) {
     dailyTotal = 0;
   }
 
-  const limit = user.is_premium ? 500000 : 50000;
+  const limit = getDailyLimit(user.is_premium);
   const remaining = limit - dailyTotal;
 
   if (amount > remaining) {
@@ -152,6 +190,20 @@ export async function checkRateLimit(telegramId) {
   return count <= 10;
 }
 
+// ───── Mutual exclusion ─────
+
+// Best-effort per-key lock backed by Redis SET NX. Serialises money-moving
+// operations for a single user so two concurrent callbacks cannot both pass a
+// balance check and spend the same SIDI (see docs/PAYMENTS.md §3.3).
+export async function acquireLock(key, ttlSeconds = 15) {
+  const result = await getRedis().set(`lock_${key}`, '1', { nx: true, ex: ttlSeconds });
+  return result === 'OK' || result === true;
+}
+
+export async function releaseLock(key) {
+  await redis.del(`lock_${key}`);
+}
+
 // ───── Pending Payment Tracking ─────
 
 export async function setPendingPayment(reference, data) {
@@ -164,6 +216,13 @@ export async function getPendingPayment(reference) {
 
 export async function deletePendingPayment(reference) {
   await redis.del(`payment_${reference}`);
+}
+
+// Atomically fetch and remove a pending payment. Returns the record at most
+// once per reference, which makes webhook crediting idempotent: a replayed
+// event finds nothing to consume and is ignored.
+export async function consumePendingPayment(reference) {
+  return getRedis().getdel(`payment_${reference}`);
 }
 
 // ───── All Users (for broadcast) ─────

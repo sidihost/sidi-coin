@@ -1,8 +1,7 @@
 import { Router } from 'express';
 import { verifyWebhookSignature } from '../services/korapay.js';
 import {
-  getPendingPayment,
-  deletePendingPayment,
+  consumePendingPayment,
   getUser,
   updateUser,
   addTransaction,
@@ -15,23 +14,26 @@ import {
   notifyAdmin,
 } from '../services/notifications.js';
 import { formatNumber, sidiToNaira, generateReference } from '../utils/formatting.js';
+import { REFERRAL_PURCHASE_COMMISSION } from '../config/tokenomics.js';
 
 const router = Router();
 
 router.post('/webhook/korapay', async (req, res) => {
   try {
     const signature = req.headers['x-korapay-signature'] || req.headers['x-korapay-hash'];
-    const payload = req.body;
+    const rawBody = req.rawBody ? req.rawBody.toString('utf8') : '';
 
-    // Verify webhook signature
-    if (signature && !verifyWebhookSignature(payload, signature)) {
-      console.error('Invalid Korapay webhook signature');
+    // Signature verification is mandatory. A request without a valid signature
+    // is rejected before any state is touched (see docs/PAYMENTS.md §2.4).
+    if (!verifyWebhookSignature(rawBody, signature)) {
+      console.error('Rejected Korapay webhook: invalid or missing signature');
       return res.status(401).json({ error: 'Invalid signature' });
     }
 
+    const payload = req.body || {};
     res.status(200).json({ status: 'received' });
 
-    // Process the event
+    // Process the event after acknowledging receipt.
     const event = payload.event || payload.data?.event;
     const data = payload.data || payload;
     const reference = data.reference || data?.metadata?.reference;
@@ -47,7 +49,7 @@ router.post('/webhook/korapay', async (req, res) => {
       event === 'charge.completed' ||
       data.status === 'success'
     ) {
-      await handlePaymentSuccess(reference, data);
+      await handlePaymentSuccess(reference);
     }
 
     // Handle payout success/failure (for /sell)
@@ -61,13 +63,17 @@ router.post('/webhook/korapay', async (req, res) => {
     }
   } catch (error) {
     console.error('Korapay webhook error:', error.message);
-    res.status(200).json({ status: 'error received' });
+    // The 200 acknowledgement may already have been sent; only reply if not.
+    if (!res.headersSent) {
+      res.status(200).json({ status: 'error received' });
+    }
   }
 });
 
-async function handlePaymentSuccess(reference, data) {
-  // Look up the pending payment
-  const pending = await getPendingPayment(reference);
+async function handlePaymentSuccess(reference) {
+  // Atomically consume the pending payment. If it is already gone the event is
+  // a duplicate or unknown, so nothing is credited.
+  const pending = await consumePendingPayment(reference);
   if (!pending) {
     console.error(`No pending payment found for ref: ${reference}`);
     return;
@@ -119,7 +125,7 @@ async function handlePaymentSuccess(reference, data) {
     if (user.referred_by) {
       const referrer = await getUser(user.referred_by);
       if (referrer) {
-        const commission = 10; // 10 SIDI per purchase
+        const commission = REFERRAL_PURCHASE_COMMISSION;
         await updateUser(user.referred_by, {
           sidi_balance: referrer.sidi_balance + commission,
           referral_earnings: (referrer.referral_earnings || 0) + commission,
@@ -135,9 +141,6 @@ async function handlePaymentSuccess(reference, data) {
         await notifyReferralPurchase(user.referred_by, user.full_name, commission);
       }
     }
-
-    // Clean up
-    await deletePendingPayment(reference);
 
     console.log(`Payment success: ${formatNumber(pending.sidi_amount)} SIDI credited to ${user.username} (ref: ${reference})`);
   }
@@ -158,7 +161,6 @@ async function handlePaymentSuccess(reference, data) {
       `\u2726 Premium Activated!\n\nWelcome to Sidicoin Premium \u2726\nYour perks are now active for 30 days.\n\n\u2022 500K/day limit\n\u2022 0.8% fees\n\u2022 25 SIDI daily check-in\n\u2022 \u2726 badge \u2726`
     );
 
-    await deletePendingPayment(reference);
     console.log(`Premium activated for ${user.username} (ref: ${reference})`);
   }
 }
