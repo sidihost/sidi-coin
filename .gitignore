@@ -6,6 +6,13 @@ __v0_jsx-dev-runtime.ts
 # Common ignores
 node_modules/
 .next/
-.env*.local
 .DS_Store
 .vercel
+
+# Environment files — never commit secrets
+.env
+.env.local
+.env.*.local
+
+# Next.js generated
+next-env.d.ts

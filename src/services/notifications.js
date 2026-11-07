@@ -1,5 +1,10 @@
-const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const API_BASE = `https://api.telegram.org/bot${BOT_TOKEN}`;
+import { requireEnv } from '../config/env.js';
+
+const API_BASE = 'https://api.telegram.org/bot';
+
+function apiUrl(method) {
+  return `${API_BASE}${requireEnv('TELEGRAM_BOT_TOKEN')}/${method}`;
+}
 
 export async function sendMessage(chatId, text, options = {}) {
   const body = {
@@ -10,7 +15,7 @@ export async function sendMessage(chatId, text, options = {}) {
   };
 
   try {
-    const response = await fetch(`${API_BASE}/sendMessage`, {
+    const response = await fetch(apiUrl("sendMessage"), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
@@ -33,7 +38,7 @@ export async function editMessage(chatId, messageId, text, options = {}) {
   };
 
   try {
-    const response = await fetch(`${API_BASE}/editMessageText`, {
+    const response = await fetch(apiUrl("editMessageText"), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
@@ -47,7 +52,7 @@ export async function editMessage(chatId, messageId, text, options = {}) {
 
 export async function answerCallbackQuery(callbackQueryId, text = '') {
   try {
-    await fetch(`${API_BASE}/answerCallbackQuery`, {
+    await fetch(apiUrl("answerCallbackQuery"), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -62,7 +67,7 @@ export async function answerCallbackQuery(callbackQueryId, text = '') {
 
 export async function getUserProfilePhotos(userId) {
   try {
-    const response = await fetch(`${API_BASE}/getUserProfilePhotos`, {
+    const response = await fetch(apiUrl("getUserProfilePhotos"), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ user_id: userId, limit: 1 }),
@@ -70,14 +75,14 @@ export async function getUserProfilePhotos(userId) {
     const data = await response.json();
     if (data.ok && data.result.total_count > 0) {
       const fileId = data.result.photos[0][0].file_id;
-      const fileResponse = await fetch(`${API_BASE}/getFile`, {
+      const fileResponse = await fetch(apiUrl("getFile"), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ file_id: fileId }),
       });
       const fileData = await fileResponse.json();
       if (fileData.ok) {
-        return `https://api.telegram.org/file/bot${BOT_TOKEN}/${fileData.result.file_path}`;
+        return `https://api.telegram.org/file/bot${requireEnv("TELEGRAM_BOT_TOKEN")}/${fileData.result.file_path}`;
       }
     }
     return null;

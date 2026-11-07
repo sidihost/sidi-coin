@@ -1,3 +1,9 @@
+import {
+  FREE_DAILY_LIMIT,
+  PREMIUM_DAILY_LIMIT,
+  getFeeRate,
+} from '../config/tokenomics.js';
+
 export function isValidUsername(username) {
   if (!username) return false;
   const clean = username.replace('@', '');
@@ -35,16 +41,8 @@ export function detectAmountType(text) {
   return 'sidi';
 }
 
-const FREE_DAILY_LIMIT = 50000;
-const PREMIUM_DAILY_LIMIT = 500000;
-
 export function getDailyLimit(isPremium) {
   return isPremium ? PREMIUM_DAILY_LIMIT : FREE_DAILY_LIMIT;
-}
-
-export function getFeeRate(isPremium, type) {
-  if (type === 'send') return 0;
-  return isPremium ? 0.008 : 0.015;
 }
 
 export function calculateFee(amount, isPremium, type) {

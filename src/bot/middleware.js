@@ -1,8 +1,6 @@
 import { getUser, checkRateLimit } from '../services/redis.js';
 import { sendMessage } from '../services/notifications.js';
 
-const ADMIN_ID = process.env.ADMIN_TELEGRAM_ID;
-
 export async function ensureRegistered(chatId, telegramId) {
   const user = await getUser(telegramId);
   if (!user) {
@@ -50,5 +48,5 @@ export async function ensureRateLimit(chatId, telegramId) {
 }
 
 export function isAdmin(telegramId) {
-  return String(telegramId) === String(ADMIN_ID);
+  return String(telegramId) === String(process.env.ADMIN_TELEGRAM_ID);
 }

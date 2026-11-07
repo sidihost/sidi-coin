@@ -1,4 +1,4 @@
-const SIDI_PRICE_NGN = parseFloat(process.env.SIDI_PRICE_NGN || '25');
+import { getSidiPriceNgn } from '../config/tokenomics.js';
 
 export function formatNumber(num) {
   if (num === null || num === undefined) return '0';
@@ -6,11 +6,11 @@ export function formatNumber(num) {
 }
 
 export function sidiToNaira(sidi) {
-  return Number(sidi) * SIDI_PRICE_NGN;
+  return Number(sidi) * getSidiPriceNgn();
 }
 
 export function nairaToSidi(naira) {
-  return Number(naira) / SIDI_PRICE_NGN;
+  return Number(naira) / getSidiPriceNgn();
 }
 
 export function formatSidi(amount) {

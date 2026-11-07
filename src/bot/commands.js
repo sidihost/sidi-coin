@@ -6,6 +6,9 @@ import {
   getTelegramIdByUsername,
   addTransaction,
   checkAndUpdateDailyLimit,
+  getDailyLimitStatus,
+  acquireLock,
+  releaseLock,
   addContact,
   incrementStat,
   getStats,
@@ -70,12 +73,9 @@ import {
   onboardingStep3Keyboard,
 } from './keyboards.js';
 
-const SIDI_PRICE = parseFloat(process.env.SIDI_PRICE_NGN || '25');
-const WELCOME_BONUS = 80;
-const REFERRAL_BONUS = 50;
-const CHECKIN_FREE = 10;
-const CHECKIN_PREMIUM = 25;
-const STREAK_BONUS = 100;
+import { getSidiPriceNgn, WELCOME_BONUS, REFERRAL_SIGNUP_BONUS, REFERRAL_PURCHASE_COMMISSION, REFERRAL_MILESTONES, CHECKIN_FREE, CHECKIN_PREMIUM, STREAK_BONUS, TOTAL_SUPPLY, referralMilestoneReached } from '../config/tokenomics.js';
+
+const BOT_USERNAME = 'SidicoinBot';
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // /start
@@ -108,8 +108,23 @@ export async function handleStart(chatId, from, text) {
   // Show loading
   const loadingMsg = await sendMessage(chatId, '\u26A1 Setting up your Sidicoin wallet...');
 
-  // Create TON wallet
-  const wallet = await createWallet();
+  // Create TON wallet. Failures must be surfaced to the user — never silently
+  // replaced with a fabricated address (see docs/PAYMENTS.md §4.3).
+  let wallet;
+  try {
+    wallet = await createWallet();
+  } catch (error) {
+    console.error('Wallet creation failed:', error.message);
+    if (loadingMsg?.result?.message_id) {
+      return editMessage(
+        chatId,
+        loadingMsg.result.message_id,
+        '\u2726 We could not set up your wallet right now. Please try /start again in a moment \u2726',
+        mainMenuKeyboard()
+      );
+    }
+    return;
+  }
 
   // Get profile photo
   const photoUrl = await getUserProfilePhotos(from.id);
@@ -173,23 +188,45 @@ export async function handleStart(chatId, from, text) {
   });
 
   // Handle referral
-  if (referredBy) {
+  if (referredBy && referredBy !== telegramId) {
     const referrer = await getUser(referredBy);
     if (referrer) {
+      const newReferralCount = (referrer.referral_count || 0) + 1;
+      const milestone = referralMilestoneReached(newReferralCount);
+      const milestoneBonus = milestone ? milestone.bonus : 0;
+      const totalBonus = REFERRAL_SIGNUP_BONUS + milestoneBonus;
+      const newReferrerBalance = referrer.sidi_balance + totalBonus;
+
       await updateUser(referredBy, {
-        sidi_balance: referrer.sidi_balance + REFERRAL_BONUS,
-        referral_count: (referrer.referral_count || 0) + 1,
-        referral_earnings: (referrer.referral_earnings || 0) + REFERRAL_BONUS,
+        sidi_balance: newReferrerBalance,
+        referral_count: newReferralCount,
+        referral_earnings: (referrer.referral_earnings || 0) + totalBonus,
       });
-      await updateLeaderboard(referredBy, referrer.sidi_balance + REFERRAL_BONUS);
+      await updateLeaderboard(referredBy, newReferrerBalance);
       await addTransaction(referredBy, {
         type: 'referral_bonus',
-        amount: REFERRAL_BONUS,
+        amount: REFERRAL_SIGNUP_BONUS,
         description: `Referral: ${userData.full_name} joined`,
         reference: generateReference(),
       });
-      await incrementStat('circulating_supply', REFERRAL_BONUS);
-      await notifyReferralJoined(referredBy, userData.full_name, REFERRAL_BONUS);
+      await incrementStat('circulating_supply', REFERRAL_SIGNUP_BONUS);
+      await notifyReferralJoined(referredBy, userData.full_name, REFERRAL_SIGNUP_BONUS);
+
+      if (milestone) {
+        await addTransaction(referredBy, {
+          type: 'referral_milestone',
+          amount: milestoneBonus,
+          description: `Referral milestone: ${milestone.count} invites`,
+          reference: generateReference(),
+        });
+        await incrementStat('circulating_supply', milestoneBonus);
+        await sendMessage(
+          referredBy,
+          `\uD83C\uDF89 Milestone reached! You have invited <b>${milestone.count}</b> people.\n\n` +
+            `<b>+${milestoneBonus} SIDI</b> bonus added to your wallet \u2726`,
+          mainMenuKeyboard()
+        );
+      }
     }
   }
 
@@ -305,8 +342,8 @@ export async function processSendConfirmation(chatId, user, recipientUsername, a
     );
   }
 
-  // Check daily limit
-  const limitCheck = await checkAndUpdateDailyLimit(user.telegram_id, 0); // Dry check
+  // Check daily limit (read-only pre-flight; never mutates the running total)
+  const limitCheck = await getDailyLimitStatus(user.telegram_id);
   if (limitCheck.remaining < amount) {
     return sendMessage(
       chatId,
@@ -318,11 +355,10 @@ export async function processSendConfirmation(chatId, user, recipientUsername, a
   // Find recipient
   const recipient = await getUserByUsername(recipientUsername);
   if (!recipient) {
-    const botUsername = 'SidicoinBot'; // Replace with actual bot username
-    const inviteLink = `https://t.me/${botUsername}?start=ref_${user.telegram_id}`;
+    const inviteLink = `https://t.me/${BOT_USERNAME}?start=ref_${user.telegram_id}`;
     return sendMessage(
       chatId,
-      `\u2726 @${recipientUsername} is not on Sidicoin yet.\n\nInvite them and earn <b>50 SIDI</b> when they join!\n\n${inviteLink} \u2726`,
+      `\u2726 @${recipientUsername} is not on Sidicoin yet.\n\nInvite them and earn <b>${REFERRAL_SIGNUP_BONUS} SIDI</b> when they join!\n\n${inviteLink} \u2726`,
       mainMenuKeyboard()
     );
   }
@@ -345,7 +381,32 @@ export async function processSendConfirmation(chatId, user, recipientUsername, a
 }
 
 export async function executeSend(chatId, user, recipientUsername, amount) {
+  const lockKey = `send_${user.telegram_id}`;
+  const locked = await acquireLock(lockKey);
+  if (!locked) {
+    return sendMessage(
+      chatId,
+      '\u2726 A transfer is already in progress. Please wait a moment \u2726',
+      mainMenuKeyboard()
+    );
+  }
+  try {
+    return await doExecuteSend(chatId, user, recipientUsername, amount);
+  } finally {
+    await releaseLock(lockKey);
+  }
+}
+
+async function doExecuteSend(chatId, user, recipientUsername, amount) {
   const loadingMsg = await sendMessage(chatId, '\uD83D\uDCE1 Processing your transfer...');
+
+  // Re-read the sender inside the lock so the balance check and the debit use
+  // the same snapshot.
+  const freshSender = await getUser(user.telegram_id);
+  if (!freshSender) {
+    return editMessage(chatId, loadingMsg.result.message_id, '\u2726 Account not found \u2726', mainMenuKeyboard());
+  }
+  user = freshSender;
 
   const recipient = await getUserByUsername(recipientUsername);
   if (!recipient) {
@@ -472,9 +533,10 @@ export async function handleBuy(chatId, user) {
     pending_data: {},
   });
 
+  const price = getSidiPriceNgn();
   return sendMessage(
     chatId,
-    `\u2726 Buy SIDI\n\nHow much SIDI do you want to buy?\nYou can enter amount in SIDI or NGN.\n\nExamples:\n<code>1000</code> = 1,000 SIDI (\u20A6${formatNumber(1000 * SIDI_PRICE)})\n<code>25000 NGN</code> = ${formatNumber(nairaToSidi(25000))} SIDI \u2726`,
+    `\u2726 Buy SIDI\n\nHow much SIDI do you want to buy?\nYou can enter amount in SIDI or NGN.\n\nExamples:\n<code>1000</code> = 1,000 SIDI (\u20A6${formatNumber(1000 * price)})\n<code>25000 NGN</code> = ${formatNumber(nairaToSidi(25000))} SIDI \u2726`,
     { reply_markup: { inline_keyboard: [[{ text: '\u274C Cancel', callback_data: 'cancel_action' }]] } }
   );
 }
@@ -736,6 +798,23 @@ export async function processSellAccountNumber(chatId, user, accountNumber) {
 }
 
 export async function executeSell(chatId, user) {
+  const lockKey = `sell_${user.telegram_id}`;
+  const locked = await acquireLock(lockKey);
+  if (!locked) {
+    return sendMessage(
+      chatId,
+      '\u2726 A cashout is already in progress. Please wait a moment \u2726',
+      mainMenuKeyboard()
+    );
+  }
+  try {
+    return await doExecuteSell(chatId, user);
+  } finally {
+    await releaseLock(lockKey);
+  }
+}
+
+async function doExecuteSell(chatId, user) {
   const loadingMsg = await sendMessage(chatId, '\uD83D\uDCB8 Processing your cashout...');
 
   const data = user.pending_data;
@@ -780,12 +859,34 @@ export async function executeSell(chatId, user) {
     await incrementStat('total_volume_ngn', Math.round(data.net));
     await incrementStat('total_fees_ngn', Math.round(data.fee));
 
-    // Initiate payout via Korapay
+    // Initiate payout via Korapay. If it fails, refund the debited SIDI so the
+    // user is not left out of pocket, and alert the admin.
     try {
       await initiatePayout(data.net, bankCode, bankAccount, bankAccountName, reference);
     } catch (payoutError) {
       console.error('Korapay payout error:', payoutError.message);
-      await notifyAdmin(`\u26A0\uFE0F Payout failed: ${reference} - \u20A6${data.net} to ${bankName} ${bankAccount}`);
+      const refundBalance = newBalance + data.sidi_amount;
+      await updateUser(user.telegram_id, {
+        sidi_balance: refundBalance,
+        total_sold_ngn: freshUser.total_sold_ngn || 0,
+      });
+      await updateLeaderboard(user.telegram_id, refundBalance);
+      await addTransaction(user.telegram_id, {
+        type: 'refund',
+        amount: data.sidi_amount,
+        reference,
+        description: 'Cashout failed — refunded',
+      });
+      await notifyAdmin(`\u26A0\uFE0F Payout failed and was refunded: ${reference} - \u20A6${data.net} to ${bankName} ${bankAccount}`);
+      if (loadingMsg?.result?.message_id) {
+        await editMessage(
+          chatId,
+          loadingMsg.result.message_id,
+          '\u2726 We could not complete your cashout right now. Your SIDI has been returned to your wallet. Please try again shortly \u2726',
+          mainMenuKeyboard()
+        );
+      }
+      return;
     }
 
     const text =
@@ -877,17 +978,19 @@ export async function handleContacts(chatId, user) {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 export async function handleRefer(chatId, user) {
-  const botUsername = 'SidicoinBot';
-  const link = `https://t.me/${botUsername}?start=ref_${user.telegram_id}`;
+  const link = `https://t.me/${BOT_USERNAME}?start=ref_${user.telegram_id}`;
   const earned = user.referral_earnings || 0;
   const earnedNaira = formatNumber(sidiToNaira(earned));
+  const milestoneLine = REFERRAL_MILESTONES.map((m) => `${m.count} \u2192 +${formatNumber(m.bonus)}`).join(', ');
 
   const text =
     `\u2726 Refer and Earn\n\n` +
     `Your referral link:\n${link}\n\n` +
+    `Your friend gets <b>${WELCOME_BONUS} SIDI</b> free when they join \u2726\n\n` +
     `\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n` +
-    `\uD83C\uDF81 Per signup: <b>+50 SIDI</b> (\u20A61,250)\n` +
-    `\uD83D\uDCB0 Per purchase: <b>+10 SIDI</b> (\u20A6250)\n` +
+    `\uD83C\uDF81 Per signup: <b>+${REFERRAL_SIGNUP_BONUS} SIDI</b> (\u20A6${formatNumber(sidiToNaira(REFERRAL_SIGNUP_BONUS))})\n` +
+    `\uD83D\uDCB0 Per purchase: <b>+${REFERRAL_PURCHASE_COMMISSION} SIDI</b> (\u20A6${formatNumber(sidiToNaira(REFERRAL_PURCHASE_COMMISSION))})\n` +
+    `\uD83C\uDFC6 Milestones: ${milestoneLine} SIDI\n` +
     `\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n` +
     `\uD83D\uDC65 Referrals: ${user.referral_count || 0}\n` +
     `\uD83D\uDC8E Earned: ${formatNumber(earned)} SIDI (\u20A6${earnedNaira})\n` +
@@ -898,7 +1001,7 @@ export async function handleRefer(chatId, user) {
       inline_keyboard: [
         [
           { text: '\uD83D\uDCCB Copy Link', url: link },
-          { text: '\uD83D\uDCF2 Share', url: `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent('Join Sidicoin and get 80 SIDI free! Send money instantly across Africa.')}` },
+          { text: '\uD83D\uDCF2 Share', url: `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(`Join Sidicoin and get ${WELCOME_BONUS} SIDI free! Send money instantly across Africa.`)}` },
         ],
       ],
     },
@@ -988,7 +1091,7 @@ export async function handlePremium(chatId, user) {
     `\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n` +
     `50K/day       500K/day limit\n` +
     `1.5% fees     0.8% fees\n` +
-    `10 SIDI/day   25 SIDI/day\n` +
+    `${CHECKIN_FREE} SIDI/day   ${CHECKIN_PREMIUM} SIDI/day\n` +
     `No badge      \u2726 badge\n` +
     `No priority   Priority support\n\n` +
     `\u20A61,500 per month`;
@@ -1036,13 +1139,14 @@ export async function handleLeaderboard(chatId, user) {
 export async function handlePrice(chatId) {
   const loadingMsg = await sendMessage(chatId, '\uD83D\uDCC8 Fetching live data...');
 
+  const price = getSidiPriceNgn();
   const stats = await getStats();
-  const usdRate = (SIDI_PRICE / 1600).toFixed(6); // Approximate NGN/USD
-  const marketCap = formatNumber(10000000000 * SIDI_PRICE);
+  const usdRate = (price / 1600).toFixed(6); // Approximate NGN/USD
+  const marketCap = formatNumber(TOTAL_SUPPLY * price);
 
   const text =
     `\u2726 Sidicoin Price\n\n` +
-    `1 SIDI = <b>\u20A6${SIDI_PRICE}</b>\n` +
+    `1 SIDI = <b>\u20A6${price}</b>\n` +
     `1 SIDI = <b>$${usdRate}</b>\n\n` +
     `\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n` +
     `Holders: ${formatNumber(stats.total_users)}\n` +
@@ -1063,9 +1167,10 @@ export async function handlePrice(chatId) {
 
 export async function handleStats(chatId) {
   const stats = await getStats();
+  const price = getSidiPriceNgn();
   const text =
     `\u2726 Sidicoin Statistics\n\n` +
-    `Total Supply: 10,000,000,000 SIDI\n` +
+    `Total Supply: ${formatNumber(TOTAL_SUPPLY)} SIDI\n` +
     `Circulating: ${formatNumber(stats.circulating_supply)} SIDI\n` +
     `Holders: ${formatNumber(stats.total_users)}\n` +
     `Transactions Today: ${formatNumber(stats.today_transactions)}\n` +
@@ -1073,7 +1178,7 @@ export async function handleStats(chatId) {
     `Total Fees Collected: \u20A6${formatNumber(stats.total_fees_ngn || 0)}\n\n` +
     `Blockchain: TON\n` +
     `Ticker: SIDI\n` +
-    `Price: \u20A625 per SIDI \u2726`;
+    `Price: \u20A6${price} per SIDI \u2726`;
 
   return sendMessage(chatId, text, mainMenuKeyboard());
 }
@@ -1144,8 +1249,8 @@ export async function handleAbout(chatId) {
     `\u2726 About Sidicoin\n\n` +
     `Sidicoin (SIDI) is a cryptocurrency built on TON blockchain with one mission \u2014 make financial transfers across Africa instant, free and accessible to everyone.\n\n` +
     `No bank account required.\nNo crypto knowledge needed.\nJust Telegram and a username.\n\n` +
-    `Supply: 10,000,000,000 SIDI\n` +
-    `Price: \u20A625 per SIDI\n` +
+    `Supply: ${formatNumber(TOTAL_SUPPLY)} SIDI\n` +
+    `Price: \u20A6${getSidiPriceNgn()} per SIDI\n` +
     `Blockchain: TON\n\n` +
     `Built for Africa. Going global \u2726\n\n` +
     `\uD83C\uDF10 <a href="https://sidicoin.com">sidicoin.com</a>`;

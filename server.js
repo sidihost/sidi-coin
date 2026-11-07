@@ -1,45 +1,24 @@
-import express from 'express';
-import telegramRouter from './src/routes/telegram.js';
-import korapayRouter from './src/routes/korapay.js';
-import adminRouter from './src/routes/admin.js';
+import { createApp } from './src/app.js';
+import { validateEnv, requireEnv } from './src/config/env.js';
 
-const app = express();
-const PORT = process.env.PORT || 3001;
+// Validate configuration before anything else. A missing required variable
+// stops the process with a clear, secret-free message.
+let config;
+try {
+  config = validateEnv();
+} catch (error) {
+  console.error(`\n\u274C ${error.message}\n`);
+  process.exit(1);
+}
 
-// ── Middleware ──
-app.use(express.json());
-
-// ── Routes ──
-app.use('/', telegramRouter);
-app.use('/', korapayRouter);
-app.use('/', adminRouter);
-
-// ── Root ──
-app.get('/', (req, res) => {
-  res.json({
-    name: 'Sidicoin Telegram Bot',
-    status: 'running',
-    version: '1.0.0',
-    blockchain: 'TON',
-    ticker: 'SIDI',
-  });
-});
+const app = createApp();
+const PORT = Number(process.env.PORT) || 3000;
 
 // ── Set Webhook on startup ──
 async function setWebhook() {
-  const botToken = process.env.TELEGRAM_BOT_TOKEN;
-  const webhookUrl = process.env.BOT_WEBHOOK_URL;
-
-  if (!botToken) {
-    console.log('\u26A0\uFE0F  TELEGRAM_BOT_TOKEN not set. Webhook not configured.');
-    return;
-  }
-
-  if (!webhookUrl) {
-    console.log('\u26A0\uFE0F  BOT_WEBHOOK_URL not set. Webhook not configured.');
-    console.log('   Set BOT_WEBHOOK_URL to your server URL (e.g., https://yourdomain.com)');
-    return;
-  }
+  const botToken = requireEnv('TELEGRAM_BOT_TOKEN');
+  const webhookUrl = requireEnv('BOT_WEBHOOK_URL');
+  const secretToken = requireEnv('TELEGRAM_WEBHOOK_SECRET');
 
   const url = `https://api.telegram.org/bot${botToken}/setWebhook`;
 
@@ -49,6 +28,7 @@ async function setWebhook() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         url: `${webhookUrl}/webhook/telegram`,
+        secret_token: secretToken,
         allowed_updates: ['message', 'callback_query'],
         drop_pending_updates: false,
       }),
@@ -66,6 +46,8 @@ async function setWebhook() {
 }
 
 // ── Daily stats reset (runs at midnight WAT / 11pm UTC) ──
+// Only meaningful for the long-running process; on serverless this is replaced
+// by a scheduled job.
 function scheduleDailyReset() {
   const now = new Date();
   const utcHour = now.getUTCHours();
@@ -97,6 +79,7 @@ app.listen(PORT, async () => {
   console.log('\u2726 Sidicoin Telegram Bot');
   console.log(`\u2726 Running on port ${PORT}`);
   console.log('\u2726 Blockchain: TON | Ticker: SIDI');
+  console.log(`\u2726 Integrations: TON ${config.features.ton ? 'on' : 'off'} | AI ${config.features.ai ? 'on' : 'off'}`);
   console.log('\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501');
   console.log('');
 
