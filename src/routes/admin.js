@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import crypto from 'crypto';
-import { getStats } from '../services/redis.js';
+import { getStats } from '../services/db.js';
 import { requireEnv } from '../config/env.js';
 
 const router = Router();

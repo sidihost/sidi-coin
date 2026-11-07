@@ -7,7 +7,7 @@ import {
   addTransaction,
   incrementStat,
   updateLeaderboard,
-} from '../services/redis.js';
+} from '../services/db.js';
 import {
   notifyPaymentConfirmed,
   notifyReferralPurchase,

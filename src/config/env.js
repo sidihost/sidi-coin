@@ -16,8 +16,7 @@ const REQUIRED = [
   ['ADMIN_API_TOKEN', 'Bearer token protecting the HTTP /admin/* endpoints'],
   ['ENCRYPTION_KEY', 'Key used to encrypt TON private keys at rest'],
   ['BOT_WEBHOOK_URL', 'Public https base URL of this deployment'],
-  ['KV_REST_API_URL', 'Upstash Redis REST URL'],
-  ['KV_REST_API_TOKEN', 'Upstash Redis REST token'],
+  ['DATABASE_URL', 'Neon Postgres connection string (sslmode=require)'],
   ['KORAPAY_SECRET_KEY', 'Korapay secret key (server-side payment verification)'],
 ];
 
@@ -83,7 +82,7 @@ export function validateEnv(options = {}) {
 
   const features = {
     payments: true,
-    redis: true,
+    database: true,
     ton: isSet('TON_API_KEY'),
     ai: isSet('GROQ_API_KEY'),
   };

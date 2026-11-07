@@ -16,7 +16,7 @@ import {
   getUserRank,
   updateLeaderboard,
   setPendingPayment,
-} from '../services/redis.js';
+} from '../services/db.js';
 import { createWallet } from '../services/ton.js';
 import {
   createVirtualBankAccount,

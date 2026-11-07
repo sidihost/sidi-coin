@@ -8,7 +8,7 @@ import {
   incrementStat,
   updateLeaderboard,
   addTransaction,
-} from '../services/redis.js';
+} from '../services/db.js';
 import { sendMessage } from '../services/notifications.js';
 import { formatNumber, sidiToNaira, formatDate, generateReference } from '../utils/formatting.js';
 import { cleanUsername } from '../utils/validation.js';
@@ -233,6 +233,6 @@ async function adminPending(chatId) {
   // Show pending summary
   return sendMessage(
     chatId,
-    `\u2726 ADMIN \u2014 Pending Transactions\n\nPending payments are tracked in Redis with 30min expiry.\nCheck Korapay dashboard for detailed status \u2726`
+    `\u2726 ADMIN \u2014 Pending Transactions\n\nPending payments are tracked in the database with a 30min expiry.\nCheck Korapay dashboard for detailed status \u2726`
   );
 }
