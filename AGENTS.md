@@ -71,6 +71,10 @@ at 5/10/25/50 invites, check-in 10/25 SIDI, 0% transfer fee.
   user to retry.
 - **Serverless-safe.** No `setInterval`/`setTimeout`-scheduled work in the
   request path; the webhook is registered out-of-band via `npm run webhook:set`.
+- **Webhook handlers finish before responding.** Vercel freezes a function as
+  soon as the response is sent, so `handleUpdate` / payment crediting must be
+  `await`ed *before* `res.send(...)`. Fire-and-forget work after the response is
+  silently dropped on serverless (it only survives in the long-running server).
 
 ## Testing
 

@@ -22,16 +22,15 @@ router.post('/webhook/telegram', async (req, res) => {
       return res.sendStatus(401);
     }
 
-    // Respond immediately to Telegram
-    res.sendStatus(200);
-
-    // Process update asynchronously
+    // Process the update before responding. A serverless function is frozen as
+    // soon as the response is sent, so work started after res.send() would be
+    // lost. handleUpdate never throws (it logs internally).
     const update = req.body;
     if (update) {
-      handleUpdate(update).catch((err) => {
-        console.error('Webhook processing error:', err.message);
-      });
+      await handleUpdate(update);
     }
+
+    res.sendStatus(200);
   } catch (error) {
     console.error('Telegram webhook error:', error.message);
     if (!res.headersSent) {

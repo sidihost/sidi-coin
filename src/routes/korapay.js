@@ -31,39 +31,42 @@ router.post('/webhook/korapay', async (req, res) => {
     }
 
     const payload = req.body || {};
-    res.status(200).json({ status: 'received' });
-
-    // Process the event after acknowledging receipt.
     const event = payload.event || payload.data?.event;
     const data = payload.data || payload;
     const reference = data.reference || data?.metadata?.reference;
 
-    if (!reference) {
+    // Process the event before acknowledging. A serverless function is frozen
+    // once the response is sent, so crediting started after res.send() would be
+    // lost. Crediting is idempotent (consumePendingPayment), so a Korapay retry
+    // after a failure cannot double-credit.
+    if (reference) {
+      // Handle charge success (for /buy)
+      if (
+        event === 'charge.success' ||
+        event === 'charge.completed' ||
+        data.status === 'success'
+      ) {
+        await handlePaymentSuccess(reference);
+      }
+
+      // Handle payout success/failure (for /sell)
+      if (event === 'transfer.success' || event === 'transfer.completed') {
+        console.log(`Payout successful: ${reference}`);
+      }
+
+      if (event === 'transfer.failed') {
+        console.error(`Payout failed: ${reference}`);
+        await notifyAdmin(`\u26A0\uFE0F Payout FAILED: ${reference}`);
+      }
+    } else {
       console.error('Korapay webhook: No reference found');
-      return;
     }
 
-    // Handle charge success (for /buy)
-    if (
-      event === 'charge.success' ||
-      event === 'charge.completed' ||
-      data.status === 'success'
-    ) {
-      await handlePaymentSuccess(reference);
-    }
-
-    // Handle payout success/failure (for /sell)
-    if (event === 'transfer.success' || event === 'transfer.completed') {
-      console.log(`Payout successful: ${reference}`);
-    }
-
-    if (event === 'transfer.failed') {
-      console.error(`Payout failed: ${reference}`);
-      await notifyAdmin(`\u26A0\uFE0F Payout FAILED: ${reference}`);
-    }
+    res.status(200).json({ status: 'received' });
   } catch (error) {
     console.error('Korapay webhook error:', error.message);
-    // The 200 acknowledgement may already have been sent; only reply if not.
+    // Reply 200 so Korapay does not retry indefinitely; crediting is idempotent
+    // and the failure is logged for follow-up.
     if (!res.headersSent) {
       res.status(200).json({ status: 'error received' });
     }
