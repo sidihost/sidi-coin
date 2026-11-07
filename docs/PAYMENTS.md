@@ -20,11 +20,11 @@ made to `src/services/korapay.js`, `src/services/ton.js`,
 | Telegram webhook payload | **No** | Anyone who learns the URL can POST arbitrary updates. |
 | Korapay webhook payload | **No** | Must be authenticated with an HMAC signature. |
 | Korapay API responses | Yes (over TLS) | Used to resolve bank accounts and to initiate payouts. |
-| Upstash Redis | Yes | Stores balances, pending payments and stats. |
+| Neon Postgres | Yes | Stores balances, pending payments and stats. |
 | Frontend / browser | **No** | Never receives secrets or private keys. |
 
 Secrets (`KORAPAY_SECRET_KEY`, `TELEGRAM_BOT_TOKEN`, `TON_API_KEY`,
-`GROQ_API_KEY`, `KV_REST_API_TOKEN`, `ADMIN_API_TOKEN`, `ENCRYPTION_KEY`) live
+`GROQ_API_KEY`, `DATABASE_URL`, `ADMIN_API_TOKEN`, `ENCRYPTION_KEY`) live
 only in the server runtime environment. They are never sent to Telegram users,
 never rendered in bot messages, and never included in HTTP responses.
 
@@ -39,7 +39,7 @@ never rendered in bot messages, and never included in HTTP responses.
    stores them in the user's `pending_data`, and shows a confirmation keyboard
    carrying a generated `reference`. **[implemented]**
 3. User confirms; `processBuyPayment`:
-   - writes a *pending payment* record to Redis keyed by `reference`
+   - writes a *pending payment* record to the database keyed by `reference`
      (30-minute TTL), containing `telegram_id`, `chat_id`, the amounts and the
      payment `type`; **[implemented]**
    - asks Korapay for a virtual bank account / charge with
@@ -78,7 +78,7 @@ never rendered in bot messages, and never included in HTTP responses.
   rejected with `401` before any state is touched; the previous "skip when the
   header is absent" behaviour is gone.
 - **[implemented] Replay / idempotency.** `consumePendingPayment` atomically
-  fetches *and removes* the pending payment (`GETDEL`). A replayed event finds
+  fetches *and removes* the pending payment (`DELETE ... RETURNING`). A replayed event finds
   nothing to consume and is ignored, so a reference is credited at most once.
 - **[required] Server-side amounts.** The credited `sidi_amount` is always the
   value stored server-side in the pending payment, never a value taken from the
@@ -103,14 +103,14 @@ never rendered in bot messages, and never included in HTTP responses.
 
 ### 3.2 Verification process
 
-- Balance is re-checked against a **fresh** Redis read before debit. **[implemented]**
+- Balance is re-checked against a **fresh** database read before debit. **[implemented]**
 - Bank account is verified with the provider before payout. **[implemented]**
 - The debit is written before the payout is requested. **[implemented]**
 
 ### 3.3 Failure handling
 
 - **[implemented] Double-spend on retry.** `executeSend` and `executeSell` take a
-  per-user Redis lock (`acquireLock`, `SET NX EX`) before touching balances and
+  per-user database lock (`acquireLock`, conditional upsert on `locks`) before touching balances and
   re-read the user inside the lock, so the balance check and the debit use the
   same snapshot. Concurrent confirmations are refused with a "please wait"
   message instead of double-spending.
@@ -204,8 +204,7 @@ never rendered in bot messages, and never included in HTTP responses.
 
 Required for the core application: `TELEGRAM_BOT_TOKEN`,
 `TELEGRAM_WEBHOOK_SECRET`, `ADMIN_TELEGRAM_ID`, `ADMIN_API_TOKEN`,
-`ENCRYPTION_KEY`, `BOT_WEBHOOK_URL`, `KV_REST_API_URL`, `KV_REST_API_TOKEN`,
-`KORAPAY_SECRET_KEY`.
+`ENCRYPTION_KEY`, `BOT_WEBHOOK_URL`, `DATABASE_URL`, `KORAPAY_SECRET_KEY`.
 
 Optional integrations: `KORAPAY_PUBLIC_KEY`, `TON_API_KEY`, `GROQ_API_KEY`,
 `SIDI_PRICE_NGN`, `SIDI_FEE_WALLET`.

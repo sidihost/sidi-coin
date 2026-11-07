@@ -1,4 +1,4 @@
-import { getUser, checkRateLimit } from '../services/redis.js';
+import { getUser, checkRateLimit } from '../services/db.js';
 import { sendMessage } from '../services/notifications.js';
 
 export async function ensureRegistered(chatId, telegramId) {

@@ -58,9 +58,8 @@ function scheduleDailyReset() {
 
   setTimeout(async () => {
     try {
-      const { default: redis } = await import('./src/services/redis.js');
-      await redis.set('stats_today_transactions', 0);
-      await redis.set('stats_today_volume_ngn', 0);
+      const { resetDailyStats } = await import('./src/services/db.js');
+      await resetDailyStats();
       console.log('\u2705 Daily stats reset');
     } catch (error) {
       console.error('Daily reset error:', error.message);

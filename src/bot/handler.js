@@ -1,4 +1,4 @@
-import { getUser, updateUser } from '../services/redis.js';
+import { getUser, updateUser } from '../services/db.js';
 import { sendMessage, answerCallbackQuery } from '../services/notifications.js';
 import { ensureRegistered, ensureUsername, ensureNotBanned, ensureRateLimit, isAdmin } from './middleware.js';
 import { cleanUsername, parseAmount } from '../utils/validation.js';

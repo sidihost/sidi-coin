@@ -19,7 +19,7 @@ Nigerian bank accounts.
 | `src/config/env.js` | Environment validation. `validateEnv()` (startup), `requireEnv()` / `hasEnv()` (point of use). |
 | `src/routes/` | `telegram.js`, `korapay.js` (webhooks), `admin.js` (`/health`, `/admin/stats`). |
 | `src/bot/` | `handler.js` (update routing), `commands.js` (all user flows), `admin.js` (Telegram `/admin_*`), `middleware.js`, `keyboards.js`. |
-| `src/services/` | `redis.js` (Upstash), `korapay.js`, `ton.js`, `groq.js`, `notifications.js`. |
+| `src/services/` | `db.js` (Neon Postgres), `korapay.js`, `ton.js`, `groq.js`, `notifications.js`. |
 | `src/config/` | `env.js` (validation), `tokenomics.js` (all economic values). |
 | `docs/PAYMENTS.md` | **Read before touching payment/blockchain code.** Flows, verification, failure handling, security requirements, token economics. |
 | `vercel.json` | Rewrites `/webhook/*`, `/admin/*`, `/health` to the serverless function. |
@@ -39,8 +39,7 @@ npm run dev            # next dev (brand-assets site only)
 
 - **Required** (app refuses to start without them): `TELEGRAM_BOT_TOKEN`,
   `TELEGRAM_WEBHOOK_SECRET`, `ADMIN_TELEGRAM_ID`, `ADMIN_API_TOKEN`,
-  `ENCRYPTION_KEY`, `BOT_WEBHOOK_URL`, `KV_REST_API_URL`, `KV_REST_API_TOKEN`,
-  `KORAPAY_SECRET_KEY`.
+  `ENCRYPTION_KEY`, `BOT_WEBHOOK_URL`, `DATABASE_URL`, `KORAPAY_SECRET_KEY`.
 - **Optional** (feature degrades gracefully): `KORAPAY_PUBLIC_KEY`, `TON_API_KEY`,
   `GROQ_API_KEY`, `SIDI_PRICE_NGN`, `SIDI_FEE_WALLET`.
 - `.env` is gitignored; `.env.example` is the source of truth for names.
@@ -63,9 +62,9 @@ at 5/10/25/50 invites, check-in 10/25 SIDI, 0% transfer fee.
   (`req.rawBody`), mandatory. Telegram: `X-Telegram-Bot-Api-Secret-Token`
   compared in constant time.
 - **Money-moving handlers are locked.** `executeSend`/`executeSell` take a
-  per-user Redis lock (`acquireLock`) and re-read the user inside it.
-- **Idempotent crediting.** `consumePendingPayment` (`GETDEL`) means a reference
-  is credited at most once.
+  per-user database lock (`acquireLock`) and re-read the user inside it.
+- **Idempotent crediting.** `consumePendingPayment` (`DELETE ... RETURNING`)
+  means a reference is credited at most once.
 - **Admin HTTP auth uses `ADMIN_API_TOKEN`**, not `ADMIN_TELEGRAM_ID` (which is a
   public id).
 - **No fake TON wallets.** `createWallet` failures propagate; `/start` tells the
@@ -76,10 +75,10 @@ at 5/10/25/50 invites, check-in 10/25 SIDI, 0% transfer fee.
 ## Testing
 
 There is no committed test runner yet. The flows were verified with throwaway
-harnesses (an in-memory Upstash-compatible HTTP server plus a stubbed Telegram
-API) that exercised `executeSend`, `executeSell`, and the Korapay webhook over
-HTTP. If you add tests, cover: unsigned/replayed webhooks, concurrent sends,
-payout failure refund, and admin auth.
+harnesses (a Postgres database plus a stubbed Telegram API) that exercised
+`executeSend`, `executeSell`, and the Korapay webhook over HTTP. If you add
+tests, cover: unsigned/replayed webhooks, concurrent sends, payout failure
+refund, and admin auth.
 
 ## Known open items
 
